@@ -295,12 +295,14 @@ const MIN_DIST = 0.7;          // m, Mindestabstand Kamera zu Blickpunkt (eingeb
 // sonst beim Blick von schräg unten die Neigung zurück, statt nur die Höhe zu begrenzen, und
 // die untere Ecke rückt wieder aus dem Bild.
 const FLOOR_CLEARANCE = 0.08;
-// Drehgeschwindigkeit in der Übersicht und beim vollen Heranzoomen. Grund für die Absenkung:
-// Nah am Fenster wandert der Blickpunkt durch den Schwenk stark mit dem Winkel; eine Drehung um
-// 15 Grad verschiebt die Kamera dort um rund einen Meter statt um ein Drittel davon. Mit
-// derselben Fingerbewegung fährt die Ansicht sonst quer über das Fenster.
+// Drehgeschwindigkeit in der Übersicht und beim vollen Heranzoomen, dazwischen mit derselben
+// Kurve überblendet wie die Kopplung. Grund für die Absenkung: nah am Fenster ist die Kopplung steil (der
+// Blickpunkt erreicht die Ecke innerhalb von rund 12 Grad), dieselbe Fingerbewegung schiebt
+// das Bild dort um ein Vielfaches. Mit 0.3 fuhr die Ansicht mit einem kurzen Zug quer über
+// den Rahmen; mit 0.05 verschieben 100 Pixel Zug am Mindestabstand das Bild um etwa ein
+// Fünftel seiner Breite (Rechnung in der Doku zum Kameramodell).
 const ROTATE_SPEED = 0.7;
-const ROTATE_SPEED_NEAR = 0.3;
+const ROTATE_SPEED_NEAR = 0.05;
 // Neigung nach oben und nach unten gleich weit (rad, gemessen von +y). Die Boden- und
 // Wandschranke in applyNearLimits() engt das nah am Fenster zusätzlich ein.
 const POLAR_TILT = 2.3;
@@ -308,14 +310,18 @@ const POLAR_TILT = 2.3;
 // schiebt sich die Laibung davor. Gemessen bei 0.7 m Abstand: ab 15 Grad Aufsicht zeigte der
 // ganze Bildschirm nur noch die Wand, seitlich fiel der Fensteranteil von 88 auf 25 Prozent.
 // Mehr Schwenk half dort nichts, er schob die Kamera nur weiter aus der Öffnung heraus.
-// Zugabe über die Öffnungskante hinaus, in Metern, in beide Richtungen gleich: liegt der
-// Blickpunkt auf der Fensterkante, zeigt das Bild 0.16 m daneben noch rund 40 Prozent
-// Fenster, 0.45 m daneben keins mehr.
-const OPENING_MARGIN_X = 0.16;
-const OPENING_MARGIN_Y = 0.16;
-// Wie weit der Blickpunkt vor der Fensterkante haltmacht, in Metern. Genau auf der Kante zielt
-// er auf die Fuge zur Laibung, und in der Bildmitte steht dann die Wand statt des Rahmens.
-const PIVOT_INSET = 0.10;
+// Zugabe über die Öffnungskante hinaus, in Metern, in beide Richtungen gleich. Mit 0.16 stand
+// die Kamera an der oberen Ecke 15 cm neben und über der Öffnung, und im Bild waren noch
+// 8 Prozent Fenster. Der Rand bestimmt zusammen mit PIVOT_INSET den Drehwinkel, der am
+// Mindestabstand übrig bleibt: asin((Rand + Einzug) / MIN_DIST), mit 0.12 + 0.02 rund
+// 12 Grad. Die Ecke inspiziert man also fast frontal — mehr geht bei 0.22 m Laibungstiefe
+// nicht, ohne dass die Laibung das Bild übernimmt.
+const OPENING_MARGIN_X = 0.12;
+const OPENING_MARGIN_Y = 0.12;
+// Wie weit der Blickpunkt vor der Fensterkante haltmacht, in Metern. Klein, damit die Ecke
+// selbst in die Bildmitte kommt; genau auf der Kante zielte er auf die Fuge zur Laibung.
+// Mit 0.10 blieb der Blickpunkt 18 cm vor der Ecke stehen, die Ecke lag am Bildrand.
+const PIVOT_INSET = 0.02;
 // Abstand, den die Kamera zu jedem Bauteil hält, in Metern. Die Nahebene liegt bei 0,05 m,
 // ihre Ecken bei breitem Bild rund 0,065 m vor der Kamera; darunter schneidet sie Flächen an,
 // und man sieht in Teile hinein (Z-Fighting der Innereien).
@@ -650,29 +656,22 @@ export class WindowViewer {
     // und folgt ihrer Höhe. Alle Werte in Metern pro Radiant und linear im Winkel (kein
     // Sinus: der ist in der Frontansicht am steilsten und lässt die Mitte eines Schwenks
     // wie eine schnelle Seitenfahrt wirken).
-    // Zwei Versatz-Ziele. Übersicht (ab Home-Distanz): leichter Schwenk relativ zur Home-Ansicht
-    // (x), damit die Startansicht ohne Versatz ist und ein Dreh nicht wie eine Seitenfahrt
-    // wirkt. Nah (am Mindestabstand): Blickpunkt auf dem Rahmen, relativ zur Wandnormale auf der
-    // Seite, auf der die Kamera steht (xFrame), und mit der Kamerahöhe oben oder unten (yFrame),
-    // weich begrenzt in Metern (xMax seitlich, yUp nach oben, yDown nach unten). So liegt nah
-    // am Fenster der Rahmen im Bild und nicht die Scheibe, ein Eck erreicht man mit Drehen
-    // plus Heben.
-    // Dazwischen wird LINEAR in der Distanz überblendet: der Blickpunkt wandert beim Zoomen
-    // geradlinig, die Kamera fährt auf einer Geraden ohne Knick (siehe couplingOffset).
-    // xFrame und yFrame* sind so gewählt, dass der Blickpunkt seine Grenze ungefähr dort
-    // erreicht, wo applyNearLimits die Drehung stoppt (am Mindestabstand rund 22 Grad). Sind
-    // sie höher, ist der ganze Weg von einer Ecke zur anderen schon nach wenigen Grad vorbei
-    // und der Rest des Bereichs tot: gemessen war der Blickpunkt seitlich nach 6 Grad und in
-    // der Höhe nach 4 Grad am Anschlag, die restlichen 16 Grad bewegten ihn nicht mehr. Beim
-    // Ziehen wirkt das wie ein Sprung von Ecke zu Ecke.
-    // Die Grenzen xMax, yUp und yDown sind an die Fenstergröße gebunden: halbe Breite bzw.
-    // halbe Höhe plus ein kleiner Rand. Der Blickpunkt darf damit bis knapp über die Kante
-    // wandern, aber nicht darüber hinaus. Früher stand yUp auf 2.2 m, also dem Dreifachen
-    // der halben Fensterhöhe; ganz herangezoomt und steil von oben lag der Blickpunkt dann
-    // 1.4 m über dem Fenster, das Fenster war aus dem Bild und die Kamera kehrte auf halbem
-    // Zoomweg ihre Richtung um. Wie schnell die Grenze erreicht wird, regeln xFrame/yFrame*,
-    // nicht die Grenze selbst.
-    this.panCoupling = { xFrame: 1.55, xMax: 0.68, yFrame: 1.85, yFrameUp: 1.85, yUp: 0.85, yDown: 0.90 };
+    // Auf Home-Distanz und weiter weg ist der Versatz null: der Blickpunkt ist die Fenstermitte,
+    // aus jedem Winkel. Nah (am Mindestabstand): Blickpunkt auf dem Rahmen, relativ zur
+    // Wandnormale auf der Seite, auf der die Kamera steht (xFrame), und mit der Kamerahöhe oben
+    // oder unten (yFrameUp, yFrame), weich begrenzt in Metern (xMax seitlich, yUp nach oben,
+    // yDown nach unten). So liegt nah am Fenster der Rahmen im Bild und nicht die Scheibe, eine
+    // Ecke erreicht man mit Drehen plus Heben. Dazwischen wird in der Distanz überblendet, der
+    // Blickpunkt wandert beim Zoomen geradlinig (siehe couplingOffset).
+    // Alle sechs Werte werden beim Laden aus der Fenstergeometrie berechnet, die Zahlen hier
+    // sind nur Platzhalter. Die Grenzen sind die Fensterkante minus PIVOT_INSET; die Gewinne
+    // sind so bemessen, dass der Blickpunkt seine Grenze genau dort erreicht, wo
+    // applyNearLimits die Drehung stoppt. Beides hat seine Geschichte: ein fester Wert
+    // yUp = 2.2 m (das Dreifache der halben Fensterhöhe) setzte den Blickpunkt ganz
+    // herangezoomt 1,4 m über das Fenster, und ein zu hoher Gewinn hatte den Blickpunkt
+    // seitlich nach 6 Grad am Anschlag, die restlichen 16 Grad des Bereichs bewegten ihn nicht
+    // mehr — beim Ziehen ein Sprung von Ecke zu Ecke.
+    this.panCoupling = { xFrame: 1, xMax: 0.5, yFrame: 1, yFrameUp: 1, yUp: 0.6, yDown: 0.6 };
     // Stärke der Kopplung: 1 = aktiv, 0 = aus (Fokus auf ein Bauteil, die Kamera kreist
     // dann exakt um das Teil). Wird in den Kamera-Tweens weich überblendet.
     this.panScale = 1;
@@ -697,6 +696,9 @@ export class WindowViewer {
     this.homeAzimuth = Math.atan2(this.homeDir.x, this.homeDir.z);
     this._panWant = new THREE.Vector3();
     this._pivotDelta = new THREE.Vector3();
+    // Rückstand der Kamera hinter einem zurückgewichenen Drehpunkt (siehe applyPanCoupling):
+    // die Kopplung rechnet mit der Kamera dort, wo sie stünde, wäre sie mitgefahren.
+    this.panLag = new THREE.Vector3();
     this._dirFrom = new THREE.Vector3();
     this._dirTmp = new THREE.Vector3();
     this._dirTmp2 = new THREE.Vector3();
@@ -1048,9 +1050,22 @@ export class WindowViewer {
     // Grenzen des Blickpunkt-Schwenks aus der Fenstergröße: der Blickpunkt darf bis auf die
     // Kante wandern, nicht darüber hinaus. Sonst zielt die Kamera neben die Öffnung und sieht
     // nur noch Wand. Wie schnell die Grenze erreicht wird, regeln xFrame und yFrame*.
-    this.panCoupling.xMax = Math.max(0.1, this.box.max.x - this.homeTarget.x - PIVOT_INSET);
-    this.panCoupling.yUp = Math.max(0.1, this.box.max.y - this.homeTarget.y - PIVOT_INSET);
-    this.panCoupling.yDown = Math.max(0.1, this.homeTarget.y - this.box.min.y - PIVOT_INSET);
+    const pc = this.panCoupling;
+    pc.xMax = Math.max(0.1, this.box.max.x - this.homeTarget.x - PIVOT_INSET);
+    pc.yUp = Math.max(0.1, this.box.max.y - this.homeTarget.y - PIVOT_INSET);
+    pc.yDown = Math.max(0.1, this.homeTarget.y - this.box.min.y - PIVOT_INSET);
+    // Kopplungsgewinne aus derselben Geometrie: am Mindestabstand stoppt applyNearLimits die
+    // Drehung, sobald die Kamera OPENING_MARGIN über die Öffnungskante hinaus steht; der
+    // Blickpunkt darf bis PIVOT_INSET vor die Kante. Der Winkel dazwischen ist
+    // asin((Rand + Einzug) / MIN_DIST). Bis dahin soll der Blickpunkt 95 % seiner Grenze
+    // erreicht haben: softLimit ist bis 70 % linear und geht dann in tanh über, 95 % liegen
+    // bei einem Rohwert von 1,06 × Grenze. Höher wäre ein toter Restbereich, niedriger käme
+    // der Blickpunkt nie bis zur Ecke.
+    const stopX = Math.max(0.05, Math.asin(clamp((OPENING_MARGIN_X + PIVOT_INSET) / MIN_DIST, 0, 1)));
+    const stopY = Math.max(0.05, Math.asin(clamp((OPENING_MARGIN_Y + PIVOT_INSET) / MIN_DIST, 0, 1)));
+    pc.xFrame = 1.06 * pc.xMax / stopX;
+    pc.yFrameUp = 1.06 * pc.yUp / stopY;
+    pc.yFrame = 1.06 * pc.yDown / stopY;
 
     // Kollisionsprüfung der Kamera: je Mesh die lokale Box. Geprüft wird später im lokalen
     // Raum des Meshs, also gegen die mitgedrehte Box — die Welt-Hülle eines geöffneten Flügels
@@ -1588,9 +1603,12 @@ export class WindowViewer {
     const now = performance.now();
     let changed = this.updateTweens(now);
     if (!this.hasTween('camera') && !this.hasTween('view')) {
-      // Nah am Fenster feiner drehen (siehe ROTATE_SPEED_NEAR).
+      // Nah am Fenster feiner drehen (siehe ROTATE_SPEED_NEAR), mit derselben Kurve, mit der
+      // die Kopplung zunimmt (couplingOffset): wo der Blickpunkt mitwandert, dreht die Kamera
+      // langsamer. Linear in `nah` gab es bei 1,5 m einen Hotspot — Kopplung schon bei 72 %,
+      // Drehung noch bei 0,31.
       const nah = this.nahWert();
-      this.controls.rotateSpeed = ROTATE_SPEED + (ROTATE_SPEED_NEAR - ROTATE_SPEED) * nah;
+      this.controls.rotateSpeed = ROTATE_SPEED + (ROTATE_SPEED_NEAR - ROTATE_SPEED) * smoothstep(0, 1, nah);
       this.applyNearLimits(nah);
       if (this.controls.update()) changed = true;
       if (this.applyPanCoupling()) changed = true;
@@ -1624,13 +1642,21 @@ export class WindowViewer {
   // aktualisieren: Kamera und Blickpunkt um DENSELBEN Vektor verschieben. Dann ändert sich der
   // Winkel nicht, also auch nicht der Versatz — ein Schritt, kein Nachlauf.
   //
-  // Wandert der Drehpunkt (Explosion, Drehstellung, Fokus auf ein bewegtes Teil), fahren
-  // Blickpunkt und Kamera gemeinsam mit ihm mit. Nah am Fenster ist das genau das Zurück-
-  // weichen, das der Mindestabstand ohnehin verlangt hätte; weit weg ein leichtes Zurücktreten,
-  // während sich der Flügel auf einen zubewegt. Die Alternative — Kamera bleibt stehen und
-  // dreht sich nur hin — ändert den Winkel zum Blickpunkt, und die Kopplung antwortet darauf
-  // mit einer Drift nach oben oder unten (gemessen: 20 cm beim Öffnen aus 0,7 m von schräg
-  // oben). Mitfahren ändert keinen Winkel, also driftet nichts.
+  // Wandert der Drehpunkt (Explosion, Drehstellung, Fokus auf ein bewegtes Teil), folgt ihm
+  // der Blickpunkt. Die Kamera fährt nur mit, wenn er auf sie ZUKOMMT (oder ein Fokus dem
+  // Teil folgt): nah am Fenster ist das genau das Zurückweichen, das der Mindestabstand
+  // ohnehin verlangt hätte, und weil sich dabei kein Winkel ändert, driftet nichts. Bliebe sie
+  // stehen, würde die Kopplung auf den veränderten Winkel mit einer Drift nach oben oder unten
+  // antworten (gemessen: 20 cm beim Öffnen aus 0,7 m von schräg oben).
+  // Weicht der Drehpunkt ZURÜCK (Flügel schließt, Explosion klappt ein), bleibt die Kamera
+  // stehen. Die Kamera fährt von sich aus nie auf das Fenster zu — wer nah am offenen Flügel
+  // steht und die Explosion auslöst, würde sonst erst 46 cm in Richtung Wand geschoben (der
+  // Flügel schließt vorher, sein Drehpunkt wandert zurück). Damit die Kopplung dabei nicht
+  // ihren Versatz abwickelt (mit dem Abstand ändern sich die Winkel; gemessen: 34 cm
+  // seitlicher Slide während des Schließens), rechnet sie mit der Kamera dort, wo sie stünde,
+  // wäre sie mitgefahren: `panLag` sammelt den Rückstand. Beim Auszoomen wird er mit der Nähe
+  // ausgeblendet (auf Home-Distanz ist der Blickpunkt immer die Fenstermitte), bei jeder
+  // Kamerafahrt gelöscht (die endet ohnehin an einem reinen Gleichgewichtspunkt).
   //
   // Früher wurde der Blickpunkt bei wanderndem Drehpunkt mit stehender Kamera per Fixpunkt-
   // Iteration neu bestimmt. Das divergiert: nah am Fenster ist die Verstärkung pro Schritt
@@ -1646,14 +1672,19 @@ export class WindowViewer {
     if (!this._pivotArmed) {
       this._pivotSeen.copy(this.pivot);
       this._pivotArmed = true;
+      this.panLag.set(0, 0, 0);
     } else if (!this._pivotSeen.equals(this.pivot)) {
       const d = this._pivotDelta.subVectors(this.pivot, this._pivotSeen);
       this._pivotSeen.copy(this.pivot);
+      const back = this._dirTmp2.subVectors(cam, t).normalize();
       t.add(d);
-      cam.add(d);
+      if (this.focused || d.dot(back) > 0) cam.add(d);
+      else this.panLag.add(d);
       moved = true;
     }
-    const off = this._dirTmp.subVectors(cam, t);
+    const naehe = smoothstep(0, 1, this.nahWert());
+    if (naehe <= 0) this.panLag.set(0, 0, 0);
+    const off = this._dirTmp.copy(cam).addScaledVector(this.panLag, naehe).sub(t);
     const dist = off.length();
     const theta = Math.atan2(off.x, off.z);
     const phi = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
@@ -1702,13 +1733,18 @@ export class WindowViewer {
     const innen = !this.outside;
     const gerade = innen ? 0 : Math.PI;
 
-    // Steht der Drehpunkt vor der Fensterebene (offener Flügel, Explosion), geht der Blick an
-    // der Laibung vorbei: die Öffnung wirkt um diesen Vorstand größer.
-    const vor = Math.max(0, t.z - this.box.max.z);
-    const xHi = this.box.max.x + OPENING_MARGIN_X + vor;
-    const xLo = this.box.min.x - OPENING_MARGIN_X - vor;
-    const yHi = this.box.max.y + OPENING_MARGIN_Y + vor;
-    const yLo = this.box.min.y - OPENING_MARGIN_Y - vor;
+    // Steht der Blickpunkt vor der Wandfläche (offener Flügel, Explosion), kann die Laibung ihn
+    // nicht verdecken: dann gelten nur die Raum-Schranken, und man kann um den offenen Flügel
+    // herum bis an die Wand drehen, um seine Außenseite zu sehen. Zwischen Rahmenvorderkante
+    // und Wandfläche wird weich überblendet, damit die Grenzen während der Flügel- und
+    // Explosionsfahrt nicht springen. Früher wuchs die Öffnung nur um den Vorstand des
+    // Drehpunkts mit; bei offenem Flügel endete die Drehung so bei rund 48 Grad.
+    const wandflaeche = Math.max(this.wallFaceZ, this.box.max.z + 0.01);
+    const eng = nah * (1 - smoothstep(this.box.max.z, wandflaeche, t.z));
+    const xHi = this.box.max.x + OPENING_MARGIN_X;
+    const xLo = this.box.min.x - OPENING_MARGIN_X;
+    const yHi = this.box.max.y + OPENING_MARGIN_Y;
+    const yLo = this.box.min.y - OPENING_MARGIN_Y;
 
     // Seitlich. Außen läuft der Azimut um 180 Grad, dort dreht sich das Vorzeichen von x.
     const zLim = innen ? this.wallFaceZ + 0.12 : this.wallOuterZ - 0.12;
@@ -1717,10 +1753,21 @@ export class WindowViewer {
     const boxLo = Math.asin(clamp(innen ? sLo : -sHi, -1, 1));
     const boxHi = Math.asin(clamp(innen ? sHi : -sLo, -1, 1));
     // Die Raum-Schranke bleibt in jedem Fall die äußere Grenze, die Öffnung engt nur weiter ein.
-    let devLo = Math.max(-wand, -wand + (boxLo + wand) * nah);
-    let devHi = Math.min(wand, wand + (boxHi - wand) * nah);
+    let devLo = Math.max(-wand, -wand + (boxLo + wand) * eng);
+    let devHi = Math.min(wand, wand + (boxHi - wand) * eng);
     if (devHi - devLo < 0.10) { const m = (devLo + devHi) / 2; devLo = m - 0.05; devHi = m + 0.05; }
-    if (nah > 0.02 && devHi - devLo < 2 * Math.PI - 0.1) {
+    // Grenzen dürfen die Kamera nie schieben, nur blockieren. Ziehen sie sich zusammen, während
+    // die Kamera außerhalb steht (Flügel schließt aus einer Pose weit seitlich, Explosion
+    // klappt ein), wird der Bereich um die aktuelle Pose erweitert: nicht weiter hinaus, aber
+    // zurück — und beim Zurückdrehen zieht sich die Grenze hinter der Kamera wieder zusammen.
+    // Ohne das riss ein Schließen aus 95 Grad die Kamera mit 835 Grad pro Sekunde in die
+    // Öffnungsgrenze (gemessen am 13.09.). Der Nutzer sieht dann eben kurz Wand — seine Pose,
+    // seine Entscheidung; die Kamera bewegt sich nicht von selbst.
+    const azJetzt = Math.atan2(dx, dz) - gerade;
+    const cur = Math.atan2(Math.sin(azJetzt), Math.cos(azJetzt));
+    devLo = Math.min(devLo, cur);
+    devHi = Math.max(devHi, cur);
+    if (eng > 0.02 && devHi - devLo < 2 * Math.PI - 0.1) {
       c.minAzimuthAngle = gerade + devLo;
       c.maxAzimuthAngle = gerade + devHi;
     } else {
@@ -1734,9 +1781,13 @@ export class WindowViewer {
     const phiMaxRaum = Math.min(POLAR_TILT, bodenPhi);
     const phiMinBox = Math.acos(clamp((yHi - t.y) / d, -1, 1));
     const phiMaxBox = Math.acos(clamp((yLo - t.y) / d, -1, 1));
-    let phiMin = Math.max(phiMinRaum, phiMinRaum + (phiMinBox - phiMinRaum) * nah);
-    let phiMax = Math.min(phiMaxRaum, phiMaxRaum + (phiMaxBox - phiMaxRaum) * nah);
+    let phiMin = Math.max(phiMinRaum, phiMinRaum + (phiMinBox - phiMinRaum) * eng);
+    let phiMax = Math.min(phiMaxRaum, phiMaxRaum + (phiMaxBox - phiMaxRaum) * eng);
     if (phiMax - phiMin < 0.10) { const m = (phiMin + phiMax) / 2; phiMin = m - 0.05; phiMax = m + 0.05; }
+    // Dasselbe für die Neigung: nur blockieren, nie schieben.
+    const phiJetzt = Math.acos(clamp(dy / d, -1, 1));
+    phiMin = Math.min(phiMin, phiJetzt);
+    phiMax = Math.max(phiMax, phiJetzt);
     c.minPolarAngle = clamp(phiMin, 0.02, Math.PI - 0.02);
     c.maxPolarAngle = clamp(phiMax, c.minPolarAngle + 0.02, Math.PI - 0.02);
   }
@@ -1866,8 +1917,8 @@ export class WindowViewer {
 
   // Vorausschauender Rückzug vor einer Bewegung von Bauteilen. `stellung(q)` bringt die Szene
   // in die Zwischenpose q ∈ [0, 1] der bevorstehenden Bewegung, `zeit(q)` sagt in ms, wann sie
-  // erreicht ist, `drehpunkt(q)` liefert den Drehpunkt dieser Pose — die Kamera fährt mit ihm
-  // mit (applyPanCoupling), geprüft wird also ihre mitgefahrene Position, nicht die jetzige.
+  // erreicht ist, `drehpunkt(q)` liefert den Drehpunkt dieser Pose — kommt er auf die Kamera
+  // zu, fährt sie mit ihm mit (applyPanCoupling), geprüft wird dann ihre mitgefahrene Position.
   // Steht sie in einer der abgetasteten Posen in einem Bauteil, fährt sie vorab entlang der
   // Blickachse zurück — weich, und fertig, bevor die erste Berührung käme. Die Szene steht
   // danach wieder in der Ausgangspose. Der Rückzug läuft als eigener Tween ('retreat') in
@@ -1887,7 +1938,9 @@ export class WindowViewer {
       const q = k / RETREAT_SAMPLES;
       stellung(q);
       this.fenster.updateWorldMatrix(true, true);
-      pos.copy(cam).add(drehpunkt(q)).sub(p0);
+      const dp = this._vTmp2.copy(drehpunkt(q)).sub(p0);
+      pos.copy(cam);
+      if (this.focused || dp.dot(back) > 0) pos.add(dp);
       for (const h of this.clearanceHits(pos, back, CLEAR_MARGIN + 0.02, this._hits)) {
         if (Number.isFinite(h.along)) weg = Math.max(weg, h.along);
         frist = Math.min(frist, zeit(q));
