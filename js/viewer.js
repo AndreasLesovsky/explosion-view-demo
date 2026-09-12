@@ -316,6 +316,15 @@ const OPENING_MARGIN_Y = 0.16;
 // Wie weit der Blickpunkt vor der Fensterkante haltmacht, in Metern. Genau auf der Kante zielt
 // er auf die Fuge zur Laibung, und in der Bildmitte steht dann die Wand statt des Rahmens.
 const PIVOT_INSET = 0.10;
+// Abstand, den die Kamera zu jedem Bauteil hält, in Metern. Die Nahebene liegt bei 0,05 m,
+// ihre Ecken bei breitem Bild rund 0,065 m vor der Kamera; darunter schneidet sie Flächen an,
+// und man sieht in Teile hinein (Z-Fighting der Innereien).
+const CLEAR_MARGIN = 0.10;
+// Vorausschauender Rückzug vor Öffnen, Kippen und Explosion: so viele Zwischenposen werden
+// abgetastet, und höchstens so lange dauert die Fahrt. Beim Flügel dreht in dieser Zeit erst
+// der Griff (HANDLE_TURN_DURATION), der Rückzug ist also fertig, bevor sich der Flügel bewegt.
+const RETREAT_SAMPLES = 12;
+const RETREAT_MS = 350;
 
 // Qualitätsstufen. Das Modell ist klein (wenige tausend Dreiecke), teuer ist auf Handys die
 // Füllrate: jedes Bild geht mit Pixel-Ratio in ein HDR-Ziel mit MSAA, danach Kontur- und
@@ -514,6 +523,7 @@ const OUTLINE_OVERLAY_FRAG = /* glsl */ `
 const HOVER_EMISSIVE = 0.35;
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const AXES = ['x', 'y', 'z'];
 // Weiche Begrenzung auf [lo, hi] (lo < 0 < hi): bis 70 % der Grenze linear, danach
 // asymptotische Annäherung, stetig in Wert und Steigung. Ersetzt einen harten Anschlag.
 // Winkel in (-PI, PI] normieren (Azimut-Differenzen über den ±180-Grad-Sprung hinweg).
@@ -582,6 +592,8 @@ export class WindowViewer {
     this.handleSign = -1;         // -1: im Uhrzeigersinn vom Raum gesehen (Griff rechts), +1 links
     this.handleReady = false;     // Modell für die Griffdrehung gebaut (Rosette getrennt / Spindel bekannt)
     this.attached = [];           // { obj, host }: Objekte, die zu einem Bauteil gehören, aber nicht mitdrehen (Rosette)
+    this.clearance = [];          // { mesh, box }: alle Meshes mit lokaler Box, für die Kollisionsprüfung der Kamera
+    this._hits = [];              // Arbeitsliste von clearanceHits(), pro Frame wiederverwendet
     this.stayReady = false;       // Schere mit Ursprung am Drehpunkt und mount sash: Kipp-Kinematik aktiv
     this.stayLength = 0;          // m, Armlänge der Schere vom Drehpunkt bis zum flügelseitigen Ende
     this.stayDir = 1;             // +1: Arm zeigt vom Drehpunkt nach +x, -1 nach -x
@@ -1039,6 +1051,18 @@ export class WindowViewer {
     this.panCoupling.xMax = Math.max(0.1, this.box.max.x - this.homeTarget.x - PIVOT_INSET);
     this.panCoupling.yUp = Math.max(0.1, this.box.max.y - this.homeTarget.y - PIVOT_INSET);
     this.panCoupling.yDown = Math.max(0.1, this.homeTarget.y - this.box.min.y - PIVOT_INSET);
+
+    // Kollisionsprüfung der Kamera: je Mesh die lokale Box. Geprüft wird später im lokalen
+    // Raum des Meshs, also gegen die mitgedrehte Box — die Welt-Hülle eines geöffneten Flügels
+    // wäre ein Keil, der zur Hälfte aus Luft besteht.
+    this.clearance.length = 0;
+    const sammle = (o) => o.traverse((m) => {
+      if (!m.isMesh || !m.geometry) return;
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      this.clearance.push({ mesh: m, box: m.geometry.boundingBox });
+    });
+    for (const o of this.parts.values()) sammle(o);
+    for (const { obj } of this.attached) sammle(obj);
 
     // Draußen: weicher Himmel knapp vor der Außenwand, nur durch das Fenster sichtbar.
     // Bewusst außerhalb der Wanddicke: Läge er in der Laibung, sähe die (ihn
@@ -1571,6 +1595,7 @@ export class WindowViewer {
       if (this.controls.update()) changed = true;
       if (this.applyPanCoupling()) changed = true;
       if (this.applyBoundsConstraint()) changed = true;
+      if (this.keepClear()) changed = true;
     } else {
       this.freeControlLimits();
     }
@@ -1594,46 +1619,39 @@ export class WindowViewer {
     if (this.statsMode) this.needsRender = true;
   }
 
-  // Blickpunkt pro Frame nachführen. Zwei Fälle:
-  // 1. Der Drehpunkt ist gewandert (Zustandswechsel: Explosion, Drehstellung, Reset). Dann
-  //    bleibt die Kamera stehen und dreht sich nur hin: der Blickpunkt springt auf den neuen
-  //    Gleichgewichtspunkt (Drehpunkt plus Kopplung). Von vorn liegt der auf der Blickachse, es
-  //    ändert sich nur der Orbit-Radius und im Bild bewegt sich nichts. Stünde die Kamera dabei
-  //    zu nah, weicht sie entlang der Blickachse zurück. Folgt der Drehpunkt einem fokussierten
-  //    Teil, fährt die Kamera stattdessen mit dem Teil mit (Abstand und Blickwinkel bleiben).
-  // 2. Gekoppelter Schwenk: Versatz aus Azimut, Neigung und Nähe; Kamera und Blickpunkt werden
-  //    gemeinsam verschoben, damit die Orbit-Geometrie unverändert bleibt.
+  // Blickpunkt pro Frame nachführen. Der Blickpunkt ist immer Drehpunkt plus Kopplungsversatz,
+  // und der Versatz hängt vom Winkel Kamera→Blickpunkt ab. Die einzige stabile Art, ihn zu
+  // aktualisieren: Kamera und Blickpunkt um DENSELBEN Vektor verschieben. Dann ändert sich der
+  // Winkel nicht, also auch nicht der Versatz — ein Schritt, kein Nachlauf.
+  //
+  // Wandert der Drehpunkt (Explosion, Drehstellung, Fokus auf ein bewegtes Teil), fahren
+  // Blickpunkt und Kamera gemeinsam mit ihm mit. Nah am Fenster ist das genau das Zurück-
+  // weichen, das der Mindestabstand ohnehin verlangt hätte; weit weg ein leichtes Zurücktreten,
+  // während sich der Flügel auf einen zubewegt. Die Alternative — Kamera bleibt stehen und
+  // dreht sich nur hin — ändert den Winkel zum Blickpunkt, und die Kopplung antwortet darauf
+  // mit einer Drift nach oben oder unten (gemessen: 20 cm beim Öffnen aus 0,7 m von schräg
+  // oben). Mitfahren ändert keinen Winkel, also driftet nichts.
+  //
+  // Früher wurde der Blickpunkt bei wanderndem Drehpunkt mit stehender Kamera per Fixpunkt-
+  // Iteration neu bestimmt. Das divergiert: nah am Fenster ist die Verstärkung pro Schritt
+  // (Kopplungsgewinn geteilt durch Abstand) größer als eins, der Blickpunkt raste an den
+  // oberen oder unteren Anschlag, und beim Tween-Ende riss der reguläre Schritt die Kamera um
+  // über einen Meter mit. Gemessen am 12.09.: 1,18 m in einem Frame, beim Öffnen wie bei der
+  // Explosion.
   // @returns {boolean} true, wenn sich etwas bewegt hat
   applyPanCoupling() {
     const t = this.controls.target;
     const cam = this.camera.position;
+    let moved = false;
     if (!this._pivotArmed) {
       this._pivotSeen.copy(this.pivot);
       this._pivotArmed = true;
     } else if (!this._pivotSeen.equals(this.pivot)) {
       const d = this._pivotDelta.subVectors(this.pivot, this._pivotSeen);
       this._pivotSeen.copy(this.pivot);
-      if (this.focused) {
-        t.add(d);
-        cam.add(d);
-      } else {
-        const view = this._dirTmp2.subVectors(t, cam).normalize();
-        t.add(d);
-        // Gleichgewichtspunkt der Kopplung bei stehender Kamera: der Versatz hängt vom Winkel
-        // zum Blickpunkt ab, der sich mit dem Blickpunkt ändert; zwei Fixpunkt-Schritte
-        // reichen, damit der nächste Frame die Kamera nicht mehr nachschieben muss.
-        for (let i = 0; i < 2; i++) {
-          const off = this._dirTmp.subVectors(cam, t);
-          const dist = off.length();
-          const theta = Math.atan2(off.x, off.z);
-          const phi = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
-          t.copy(this.couplingOffset(theta, phi, dist, this.panScale, this._panWant).add(this.baseTarget()));
-        }
-        const along = this._dirTmp.subVectors(t, cam).dot(view);
-        const minD = this.controls.minDistance;
-        if (along < minD) cam.addScaledVector(view, along - minD);
-        return true;
-      }
+      t.add(d);
+      cam.add(d);
+      moved = true;
     }
     const off = this._dirTmp.subVectors(cam, t);
     const dist = off.length();
@@ -1641,10 +1659,22 @@ export class WindowViewer {
     const phi = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
     const want = this.couplingOffset(theta, phi, dist, this.panScale, this._panWant).add(this.baseTarget());
     const delta = want.sub(t);
-    if (delta.lengthSq() < 1e-10) return false;
-    t.add(delta);
-    cam.add(delta);
-    return true;
+    if (delta.lengthSq() > 1e-10) {
+      t.add(delta);
+      cam.add(delta);
+      moved = true;
+    }
+    // Mindestabstand entlang der Blickachse halten (der Drehpunkt kann auf die Kamera zu
+    // gewandert sein). Radial vom Blickpunkt weg ist dasselbe wie entlang der Blickachse,
+    // weil die Kamera immer auf den Blickpunkt schaut.
+    const minD = this.controls.minDistance;
+    const d2 = cam.distanceTo(t);
+    if (d2 < minD - 1e-6) {
+      const view = this._dirTmp2.subVectors(t, cam).normalize();
+      cam.addScaledVector(view, d2 - minD);
+      moved = true;
+    }
+    return moved;
   }
 
   // 0 = Home-Distanz oder weiter weg, 1 = Mindestabstand.
@@ -1764,6 +1794,123 @@ export class WindowViewer {
     return true;
   }
 
+  // Steckt der Punkt `pos` (mit Rand `margin`, Meter) in einem Bauteil? Geprüft im lokalen
+  // Raum jedes Meshs, also gegen die mitgedrehte Box. Für jeden Treffer zwei Wege hinaus:
+  // `along` ist die Strecke entlang `back` (Weltvektor, Einheitslänge, üblicherweise die
+  // Blickachse rückwärts) bis zum Austritt, `push` die kürzeste Achsverschiebung als Weltvektor.
+  // `out` wird geleert und wiederverwendet; `push`-Vektoren werden nur bei Treffern angelegt.
+  // @returns {Array<{along:number, push:THREE.Vector3, name:string}>}
+  clearanceHits(pos, back, margin, out) {
+    out.length = 0;
+    const lp = this._vTmp;
+    const ld = this._vTmp2;
+    for (const { mesh, box } of this.clearance) {
+      lp.copy(pos);
+      mesh.worldToLocal(lp);
+      const s = mesh.matrixWorld.getMaxScaleOnAxis() || 1;
+      const m = margin / s;
+      if (lp.x <= box.min.x - m || lp.x >= box.max.x + m
+        || lp.y <= box.min.y - m || lp.y >= box.max.y + m
+        || lp.z <= box.min.z - m || lp.z >= box.max.z + m) continue;
+      // Austritt entlang `back`: Slab-Test im lokalen Raum. `ld` ist die lokale Richtung für
+      // einen Meter Weltweg, das Ergebnis damit direkt in Weltmetern.
+      ld.copy(pos).add(back);
+      mesh.worldToLocal(ld);
+      ld.sub(lp);
+      let along = Infinity;
+      for (const ax of AXES) {
+        const dir = ld[ax];
+        if (dir > 1e-9) along = Math.min(along, (box.max[ax] + m - lp[ax]) / dir);
+        else if (dir < -1e-9) along = Math.min(along, (box.min[ax] - m - lp[ax]) / dir);
+      }
+      // Kürzeste Achsverschiebung: die Fläche, die am nächsten liegt.
+      let best = Infinity, bestAx = 'x', bestSign = 1;
+      for (const ax of AXES) {
+        const toMax = box.max[ax] + m - lp[ax];
+        const toMin = lp[ax] - (box.min[ax] - m);
+        if (toMax < best) { best = toMax; bestAx = ax; bestSign = 1; }
+        if (toMin < best) { best = toMin; bestAx = ax; bestSign = -1; }
+      }
+      const push = new THREE.Vector3();
+      push[bestAx] = bestSign;
+      push.transformDirection(mesh.matrixWorld).multiplyScalar(best * s + 1e-3);
+      out.push({ along: along + 1e-3, push, name: mesh.name });
+    }
+    return out;
+  }
+
+  // Kamera aus Bauteilen heraushalten, pro Frame nach Controls und Kopplung. Hinaus geht es
+  // entlang der Blickachse rückwärts (die Kamera geht auf Abstand, der Blick bleibt) oder über
+  // die kürzeste Achsverschiebung — je nachdem, was die kleinere Bewegung ist. Das ist der
+  // Anschlag beim Ziehen und Zoomen; die Animationen selbst weichen vorher aus (retreatBefore).
+  // Mehrere Durchgänge, falls die Kamera in zwei Teilen zugleich steckt.
+  // @returns {boolean} true, wenn die Kamera verschoben wurde
+  keepClear() {
+    if (!this.clearance.length || !this.fenster) return false;
+    const cam = this.camera.position;
+    const t = this.controls.target;
+    this.fenster.updateWorldMatrix(true, true);
+    const back = this._dirTmp2.subVectors(cam, t).normalize();
+    let moved = false;
+    for (let pass = 0; pass < 3; pass++) {
+      const hits = this.clearanceHits(cam, back, CLEAR_MARGIN, this._hits);
+      if (!hits.length) break;
+      const h = hits[0];
+      if (Number.isFinite(h.along) && h.along <= h.push.length()) cam.addScaledVector(back, h.along);
+      else cam.add(h.push);
+      moved = true;
+    }
+    if (moved) this.camera.lookAt(t);
+    return moved;
+  }
+
+  // Vorausschauender Rückzug vor einer Bewegung von Bauteilen. `stellung(q)` bringt die Szene
+  // in die Zwischenpose q ∈ [0, 1] der bevorstehenden Bewegung, `zeit(q)` sagt in ms, wann sie
+  // erreicht ist, `drehpunkt(q)` liefert den Drehpunkt dieser Pose — die Kamera fährt mit ihm
+  // mit (applyPanCoupling), geprüft wird also ihre mitgefahrene Position, nicht die jetzige.
+  // Steht sie in einer der abgetasteten Posen in einem Bauteil, fährt sie vorab entlang der
+  // Blickachse zurück — weich, und fertig, bevor die erste Berührung käme. Die Szene steht
+  // danach wieder in der Ausgangspose. Der Rückzug läuft als eigener Tween ('retreat') in
+  // Schritten, verträgt sich also mit Kopplung und Controls, die parallel weiterlaufen. Ohne
+  // diesen Vorlauf würde der Frame-Anschlag (keepClear) die Kamera erst im Moment der
+  // Berührung wegschieben, mit dem Tempo des Teils statt in Ruhe.
+  // @returns {number} Rückzugsweg in Metern (0 = nichts nötig)
+  retreatBefore(stellung, zeit, drehpunkt) {
+    this.killTweens('retreat');
+    const cam = this.camera.position;
+    const back = this._dirTmp2.subVectors(cam, this.controls.target).normalize();
+    const pos = new THREE.Vector3();
+    stellung(0);
+    const p0 = drehpunkt(0).clone();
+    let weg = 0, frist = Infinity;
+    for (let k = 1; k <= RETREAT_SAMPLES; k++) {
+      const q = k / RETREAT_SAMPLES;
+      stellung(q);
+      this.fenster.updateWorldMatrix(true, true);
+      pos.copy(cam).add(drehpunkt(q)).sub(p0);
+      for (const h of this.clearanceHits(pos, back, CLEAR_MARGIN + 0.02, this._hits)) {
+        if (Number.isFinite(h.along)) weg = Math.max(weg, h.along);
+        frist = Math.min(frist, zeit(q));
+      }
+    }
+    stellung(0);
+    this.fenster.updateWorldMatrix(true, true);
+    if (weg < 0.005) return 0;
+    const dauer = clamp(frist - 40, 120, RETREAT_MS);
+    let bisher = 0;
+    this.tween({
+      tag: 'retreat', duration: dauer, ease: easeInOutSine,
+      update: (e) => {
+        const schritt = weg * e - bisher;
+        bisher = weg * e;
+        const richtung = this._dirTmp.subVectors(cam, this.controls.target).normalize();
+        cam.addScaledVector(richtung, schritt);
+        this.constrainPosition(cam, this.controls.target);
+      },
+    });
+    return weg;
+  }
+
   // Nach Kamera-Tweens: Ziel auf den Drehpunkt der Ansicht, Controls neu synchronisieren.
   settleControls() {
     this.controls.target.copy(this.baseTarget());
@@ -1793,6 +1940,7 @@ export class WindowViewer {
   cancelCameraTweens() {
     this.killTweens('camera');
     this.killTweens('pivot');
+    this.killTweens('retreat');
     this.controls.enabled = true;
   }
 
@@ -2057,14 +2205,31 @@ export class WindowViewer {
       const progress = rideMs === total ? (p) => motion(p * total) : (p) => easeInOutSine(p);
       this.cameraRide({ duration: rideMs, delay, dirTo, dEnd: () => this.standardPose().dist, progress });
     }
+    // Pose der Flügelteile zum Fortschritt q ∈ [0, 1] der Gesamtdauer; für den Tween und für
+    // die Abtastung des Rückzugs (retreatBefore) dieselbe Funktion.
+    const stellung = (q) => {
+      const elapsed = q * total;
+      for (const step of steps) this[step.key] = step.from + (step.to - step.from) * local(step, elapsed);
+      this.applyExplode();
+    };
     this.tween({
       tag: 'sash', duration: total, delay, ease: (t) => t,
       update: (_, p) => {
-        if (!started) { started = true; pivotFrom.copy(this.pivot); }
-        const elapsed = p * total;
-        for (const step of steps) this[step.key] = step.from + (step.to - step.from) * local(step, elapsed);
-        const q = motion(elapsed);
-        this.applyExplode();
+        if (!started) {
+          started = true;
+          pivotFrom.copy(this.pivot);
+          // Aus einer Nutzerpose: steht die Kamera im Weg des Flügels, vorher zurückweichen.
+          // Erst jetzt geprüft, nicht beim Aufruf — davor kann noch eine Explosion einklappen,
+          // und die Kamera steht dann woanders.
+          if (!ride) {
+            const drehpunkt = (q) => (this.focused
+              ? this.partCenter(this.focused)
+              : this._vTmp2.lerpVectors(pivotFrom, pivotTo, motion(q * total)));
+            this.retreatBefore(stellung, (q) => q * total, drehpunkt);
+          }
+        }
+        stellung(p);
+        const q = motion(p * total);
         if (this.focused) this.pivot.copy(this.partCenter(this.focused));
         else this.pivot.lerpVectors(pivotFrom, pivotTo, q);
       },
@@ -2139,15 +2304,33 @@ export class WindowViewer {
       });
     }
 
+    // Pose aller Teile zum Fortschritt p ∈ [0, 1]; liefert die Spreizung s, an der Drehpunkt und
+    // Mindestabstand hängen. Für den Tween und die Abtastung des Rückzugs dieselbe Funktion.
+    const stellung = (p) => {
+      const l = easeInOutCubic(phase(p, liftA, liftB));
+      this.liftFactor = fromLift + (to - fromLift) * l;
+      const s = easeInOutCubic(phase(p, spreadA, spreadB));
+      for (const [name, f] of fromSpread) this.partFactor.set(name, f + (to - f) * s);
+      this.applyExplode();
+      return s;
+    };
     this.tween({
       tag: 'explode', duration: EXPLODE_DURATION, delay, ease: (t) => t,
       update: (_, p) => {
-        if (!started) { started = true; pivotFrom.copy(this.pivot); minDistFrom = this.controls.minDistance; }
-        const l = easeInOutCubic(phase(p, liftA, liftB));
-        this.liftFactor = fromLift + (to - fromLift) * l;
-        const s = easeInOutCubic(phase(p, spreadA, spreadB));
-        for (const [name, f] of fromSpread) this.partFactor.set(name, f + (to - f) * s);
-        this.applyExplode();
+        if (!started) {
+          started = true;
+          pivotFrom.copy(this.pivot);
+          minDistFrom = this.controls.minDistance;
+          // Aus einer Nutzerpose: kommen Teile beim Hub oder Spreizen in die Kamera, vorher
+          // zurückweichen (siehe setSash).
+          if (!ride) {
+            const drehpunkt = (q) => (this.focused
+              ? this.partCenter(this.focused)
+              : this._vTmp2.lerpVectors(pivotFrom, pivotTo, easeInOutCubic(phase(q, spreadA, spreadB))));
+            this.retreatBefore(stellung, (q) => q * EXPLODE_DURATION, drehpunkt);
+          }
+        }
+        const s = stellung(p);
         if (this.focused) this.pivot.copy(this.partCenter(this.focused));
         else {
           this.pivot.lerpVectors(pivotFrom, pivotTo, s);
