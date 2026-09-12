@@ -1,0 +1,1493 @@
+/* =====================================================================
+   Explosion View Demo – QR-Scan, 3D-Viewer, Ersatzteile
+   ===================================================================== */
+
+:root {
+  --red: #CC0000;
+  --red-dark: #A30000;
+  --red-soft: #FBE6E6;
+  --ink: #141414;
+  --ink-2: #4A4A4A;
+  --muted: #6B6B6B;
+  --bg: #F5F5F7;
+  --surface: #FFFFFF;
+  --line: #E5E5EA;
+  --header-h: 64px;
+  --radius: 14px;
+  --font-body: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-logo: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --shadow: 0 12px 34px rgba(0, 0, 0, .14);
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, .08);
+}
+
+/* ---------- Reset ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  /* Kopf, Inhalt, Fuss als drei Zeilen. Der Inhalt bekommt 1fr und dehnt sich, damit der
+     Fußbereich auch bei kurzer Seite ganz unten sitzt - ohne position: sticky oder fixed.
+     Zu sehen ist der Unterschied nur auf hohen Bildschirmen oder weit herausgezoomt.
+     Ist der Inhalt höher als der Bildschirm, wächst die Zeile mit: 1fr heißt
+     minmax(auto, 1fr), die automatische Untergrenze ist der Inhalt selbst.
+
+     Zur Höhe: svh ist die KLEINSTE Viewport-Höhe (Adressleiste eingeblendet). Damit ist die
+     Seite nie höher als der sichtbare Bereich im ungünstigsten Zustand, es entsteht also
+     keine Bildlaufleiste für nichts. dvh wäre falsch - es ändert sich beim Scrollen,
+     während die Adressleiste ein- und ausfährt, und die Seite würde dabei zappeln.
+     Die vh-Zeile davor ist der Rückfall für Browser ohne svh. */
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Als Gitterzelle sonst mindestens so breit wie der Inhalt, was bei breiten Kindern eine
+   waagrechte Bildlaufleiste erzeugt. */
+.main {
+  min-width: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--red);
+  outline-offset: 2px;
+}
+
+.header :focus-visible {
+  outline-color: #fff;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 .5em;
+  font-weight: 700;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+h1 {
+  font-size: clamp(2.1rem, 5.6vw, 3.9rem);
+  font-weight: 900;
+  letter-spacing: .01em;
+  line-height: 1.05;
+  margin-bottom: .45em;
+}
+
+h2 {
+  font-size: 1.45rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---------- Header ---------- */
+.header {
+  /* Mindestabstand zwischen Logo und Navigation. Ohne ihn stoßen die beiden auf sehr
+     schmalen Geräten aneinander, sobald "Neu scannen" sichtbar ist. */
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(16px, 4vw, 40px);
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .18);
+}
+
+.logo {
+  font-family: var(--font-logo);
+  font-weight: 600;
+  /* Mitwachsend: "Explosion View Demo" ist neunzehn Zeichen und wäre bei festen 28 px auf einem
+     Telefon breiter als der halbe Bildschirm — daneben stehen ja noch Shop und "Neu scannen". */
+  font-size: clamp(18px, 4.2vw, 28px);
+  letter-spacing: .035em;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.nav a {
+  color: #fff;
+  font-weight: 500;
+  text-decoration: none;
+  opacity: .92;
+}
+
+.nav a:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow .25s ease, background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.btn:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+.btn--primary {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(204, 0, 0, .28);
+  border: 2px solid var(--red);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--bg);
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 0 10px 26px rgba(20, 20, 20, .18);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(20, 20, 20, .16);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: inherit;
+  border: 1.5px solid currentColor;
+  padding: 8px 14px;
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+.header .btn--ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, .75);
+}
+
+.header .btn--ghost:hover {
+  background-color: var(--bg);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.btn--small {
+  font-size: 14px;
+  padding: 9px 16px;
+}
+
+.btn--xl {
+  position: relative;
+  font-size: 19px;
+  font-weight: 700;
+  padding: 19px 36px;
+  letter-spacing: .01em;
+}
+
+/* Puls-Ring als Box-Shadow-Spread: folgt exakt dem Pill-Radius des Buttons,
+   ein skalierter Rahmen hätte an den runden Enden eine andere Form. */
+.btn--xl::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 rgba(204, 0, 0, .55);
+  pointer-events: none;
+  animation: pulse 2.4s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(204, 0, 0, .55);
+  }
+
+  70% {
+    box-shadow: 0 0 0 18px rgba(204, 0, 0, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 18px rgba(204, 0, 0, 0);
+  }
+}
+
+/* ---------- Screens ---------- */
+.screen {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .45s ease, transform .45s ease;
+}
+
+.screen.is-active {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: clamp(56px, 10vh, 120px) 20px 44px;
+  text-align: center;
+}
+
+.lead {
+  max-width: 640px;
+  margin: 0 auto 36px;
+  font-size: clamp(17px, 2vw, 20px);
+  font-weight: 300;
+  color: var(--ink-2);
+}
+
+.hint {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.steps {
+  list-style: none;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px 90px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.steps li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 22px 18px;
+}
+
+.steps__num {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-weight: 700;
+}
+
+.steps h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.steps p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+/* ---------- Viewer ---------- */
+.viewer {
+  position: relative;
+  /* Bezugsrahmen für den schwebenden Tooltip (Bühne sitzt oben links) */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  height: calc(100vh - var(--header-h));
+  height: calc(100dvh - var(--header-h));
+}
+
+.viewer__stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  background: radial-gradient(120% 90% at 50% 15%, #ffffff 0%, #eef0f4 55%, #dde2ea 100%);
+}
+
+.viewer__stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.viewer__stage.is-hover canvas {
+  cursor: pointer;
+}
+
+.viewer__stage.is-dragging canvas {
+  cursor: grabbing;
+}
+
+.viewer__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-2);
+  background: rgba(245, 245, 247, .7);
+  backdrop-filter: blur(4px);
+}
+
+.viewer__loading.is-error {
+  color: var(--red-dark);
+  font-weight: 500;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(204, 0, 0, .18);
+  border-top-color: var(--red);
+  animation: spin .9s linear infinite;
+}
+
+.viewer__loading.is-error .spinner {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Kopfzeile der Bühne. Sie ist nur noch ein Rahmen mit Position: das Leistungs-Overlay liegt
+   darin absolut und nimmt der Werkzeugleiste damit KEINE Breite mehr weg. Vorher lagen beide
+   in derselben Flex-Zeile, und das Öffnen des Overlays machte die Leiste schmaler. Auf einem
+   schmalen Fenster blieben ihr 74 px, die sechs Knöpfe brachen auf sechs Zeilen um, und der
+   Knopf, den man gerade gedrückt hatte, sprang unter dem Zeiger weg. Ein Bedienelement darf
+   sich nicht bewegen, weil man es benutzt. */
+.viewer__top {
+  /* Der Container für beide Abfragen weiter unten. Gemessen wird damit der Platz, den es
+     wirklich gibt (Bühne minus Ränder), nicht die Fensterbreite - die kennt weder die
+     Seitenränder noch eine Bildlaufleiste. */
+  container-type: inline-size;
+  container-name: kopf;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  left: 14px;
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+/* Die Kopfzeile selbst fängt nichts ab; nur Knöpfe und Overlay sind anfassbar. Die Leiste
+   füllt als Flex-Kind die ganze Restbreite, und wenn ihr Kasten Zeigereignisse annimmt,
+   schluckt sie Berührungen weit neben den Knöpfen: auf dem Telefon reagierte dadurch ein
+   breiter Streifen der Bühne nicht mehr auf Drehen und Antippen. */
+.viewer__toolbar {
+  pointer-events: none;
+}
+
+/* Nur die Knöpfe. Das Overlay ist reine Auskunft und darf ebenfalls nichts abfangen. */
+.viewer__toolbar .btn {
+  pointer-events: auto;
+}
+
+.viewer__toolbar {
+  /* Volle Breite der Kopfzeile, in jedem Zustand. Selbst KEIN Container mehr: eine
+     Container-Abfrage kann den Container nicht selbst ansprechen, und genau das bräuchte
+     die Ausrichtung. Gefragt wird deshalb die Kopfzeile. */
+  flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  /* Kein Umbruch: die Leiste ist entweder eine Zeile oder eine Spalte, nichts dazwischen.
+     Eine halb umgebrochene Leiste verschiebt die Knöpfe unvorhersehbar. */
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Ausrichtung der Leiste. Die Schwelle ist gerechnet, nicht gegriffen: nebeneinander
+   brauchen das Overlay in seiner breitesten Form (gemessen 320, siehe unten) und die Leiste
+   in Symbolform (6 × 44 + 5 × 8 = 304) plus 12 Abstand zusammen 636. Ist weniger Platz da,
+   steht die Leiste senkrecht am rechten Rand - dort ist sie nur einen Knopf breit, und das
+   Overlay behält oben links seinen Platz.
+   Gefragt wird die Kopfzeile, nicht das Fenster: die Kopfzeile ist der Platz, den es
+   wirklich gibt, abzüglich Ränder und Bildlaufleiste. */
+@container kopf (max-width: 636px) {
+  .viewer__toolbar {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
+/* Reicht der Platz nicht für die Beschriftungen, bleiben die Symbole. Der Text bleibt als
+   aria-label und im data-tip erhalten. Auch das ist gerechnet: die Leiste mit Beschriftung
+   misst 1028, dazu Overlay 320 und 12 Abstand, macht 1360. */
+@container kopf (max-width: 1360px) {
+  .viewer__toolbar .btn--small {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .viewer__toolbar .btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .viewer__toolbar .btn__label {
+    display: none;
+  }
+}
+
+.viewer__toolbar .btn--ghost {
+  background: rgba(255, 255, 255, .88);
+  border-color: var(--line);
+  color: var(--ink);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-sm);
+}
+
+.viewer__toolbar .btn--ghost:hover {
+  border-color: var(--ink-2);
+}
+
+.viewer__toolbar .btn.is-on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.viewer__toolbar .btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.viewer__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, .78);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.viewer__stage.has-selection .viewer__hint {
+  opacity: 0;
+}
+
+
+.viewer__side {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  padding: 26px 26px 30px;
+}
+
+.viewer__side h2 {
+  font-size: 21px;
+  margin-bottom: 4px;
+}
+
+.viewer__side-title {
+  margin-top: 30px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--ink-2);
+}
+
+.viewer__side-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+}
+
+.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.parts button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--bg);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.parts button:hover {
+  border-color: var(--line);
+  background: #fff;
+}
+
+.parts button.is-active {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+
+.parts__group {
+  margin: 10px 0 2px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.parts__group:first-child {
+  margin-top: 0;
+}
+
+.parts__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cfd2d8;
+  transition: background .15s ease;
+}
+
+.parts button.is-active .parts__dot {
+  background: var(--red);
+}
+
+.parts__label {
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.parts__cat {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- Hover-Namensschild (folgt dem Mauszeiger) ---------- */
+.hoverlabel {
+  position: absolute;
+  left: var(--x, 0);
+  top: var(--y, 0);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px 6px 9px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tt-in .12s ease-out;
+}
+
+.hoverlabel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+/* ---------- Sprechblasen ---------- */
+/* Ersatz für das title-Attribut: der Browser blendet es erst nach rund einer Sekunde ein, in
+   einem eigenen Fenster ohne Bezug zum Aussehen der Seite. Nur auf Geräten mit echtem Zeiger:
+   auf Touch gibt es kein Überfahren, dort erschiene die Blase erst beim Antippen und läge dann
+   über dem, was der Tipp gerade ausgelöst hat. Der Text steht zusätzlich im aria-label, für
+   Vorleseprogramme ändert sich also nichts.
+   Der Bezugsrahmen (position: relative) steht bewusst außerhalb der Medienabfrage, damit er
+   nicht plötzlich fehlt, wenn ein Gerät beides kann (Notebook mit Touchscreen). */
+[data-tip] {
+  position: relative;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-tip]::after,
+  [data-tip]::before {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .12s ease, visibility 0s linear .12s;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  [data-tip]::after {
+    content: attr(data-tip);
+    transform: translateX(-50%);
+    padding: 5px 9px;
+    border-radius: 6px;
+    background: rgba(16, 16, 18, .92);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* Spitze: gedrehtes Quadrat, halb hinter der Blase. */
+  [data-tip]::before {
+    content: "";
+    top: calc(100% + 4px);
+    width: 8px;
+    height: 8px;
+    background: rgba(16, 16, 18, .92);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  /* Gezeigt wird die Blase NUR, solange der Knopf keine Beschriftung trägt. Steht der Text
+     ohnehin daneben, wäre die Blase dieselbe Angabe ein zweites Mal. Deshalb dieselbe
+     Schwelle wie die Beschriftung selbst - beides schaltet gemeinsam um.
+     Verzögert einblenden, damit sie beim bloßen Überstreichen nicht aufblitzt. Bei der
+     Tastatur ohne Verzögerung: wer hierher tabbt, will die Beschriftung sofort. */
+  @container kopf (max-width: 1360px) {
+    [data-tip]:hover::after,
+    [data-tip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: .35s, .35s;
+    }
+
+    [data-tip]:focus-visible::after,
+    [data-tip]:focus-visible::before {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: 0s, 0s;
+    }
+  }
+
+  /* In der Werkzeugleiste an der rechten Knopfkante ausrichten statt mittig. Die Leiste
+     sitzt am rechten Rand der Bühne, und die Bühne schneidet ab (overflow: hidden): eine
+     mittig gesetzte Blase ragte beim letzten Knopf hinaus und wurde beschnitten. Nach links
+     ist immer Platz. Die Spitze bleibt über der Knopfmitte. */
+  .viewer__toolbar .btn::after {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+}
+
+/* ---------- Leistungs-Overlay ---------- */
+/* Angelehnt an das Overlay der Grafiktreiber: dunkel, kompakt, Zahlen in Grün, feste
+   Ziffernbreite, damit beim Zählen nichts springt. Liegt über der Bühne, aber unter dem
+   Infofeld (z-index 5) und stiehlt keine Klicks. */
+.stats {
+  /* Absolut, damit das Overlay der Werkzeugleiste keine Breite wegnimmt. Es gehört nicht in
+     deren Container: sonst hinge die Form der Leiste daran, ob das Overlay offen ist. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Sitzt immer oben links, in jedem Zustand und bei jeder Breite. Unter 576 px steht die
+     Leiste senkrecht und ist nur einen Knopf breit, darüber ist neben dem Overlay reichlich
+     Platz - die beiden kommen sich also nie in die Quere, ohne dass hier etwas ausweichen
+     müsste. */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(16, 16, 18, .78);
+  color: #e8e8ea;
+  font-size: 11px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+/* Steht die Leiste senkrecht, gehört die Blase daneben statt darunter - darunter läge sie
+   über dem nächsten Knopf. Nach links, weil die Leiste am rechten Rand klebt. Dieselbe
+   Schwelle wie die Ausrichtung selbst, damit beides zusammen umschaltet. */
+@media (hover: hover) and (pointer: fine) {
+  @container kopf (max-width: 636px) {
+    .viewer__toolbar .btn::after {
+      top: 50%;
+      left: auto;
+      right: calc(100% + 12px);
+      transform: translateY(-50%);
+    }
+
+    .viewer__toolbar .btn::before {
+      top: 50%;
+      left: auto;
+      right: calc(100% + 8px);
+      transform: translateY(-50%) rotate(45deg);
+    }
+  }
+}
+
+.stats__fps {
+  display: grid;
+  justify-items: center;
+  padding-right: 12px;
+  border-right: 1px solid rgba(255, 255, 255, .16);
+}
+
+.stats__fps b {
+  font-size: 22px;
+  font-weight: 600;
+  color: #76b900;
+  text-align: center;
+}
+
+/* Platz für drei Ziffern reservieren, ohne eine Breite zu raten: ein unsichtbarer Platzhalter
+   aus drei Nullen bestimmt die Mindestbreite. Weil die Anzeige tabellarische Ziffern verwendet,
+   ist jede Ziffer gleich breit, und der Block ändert seine Breite zwischen 9 und 166 nicht.
+   Er wächst automatisch mit, wenn die Schrift kleiner wird. */
+.stats__fps b::before {
+  content: "000";
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.stats__fps span {
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: rgba(232, 232, 234, .6);
+}
+
+.stats__list {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 10px;
+  margin: 0;
+}
+
+.stats__list dt {
+  color: rgba(232, 232, 234, .6);
+}
+
+.stats__list dd {
+  margin: 0;
+  color: #76b900;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .stats {
+    font-size: 10px;
+    padding: 6px 10px;
+    gap: 10px;
+  }
+
+  .stats__fps {
+    padding-right: 10px;
+  }
+
+  .stats__fps b {
+    font-size: 18px;
+  }
+}
+
+/* Steht die Leiste senkrecht, ist es schmal - dann darf auch das Overlay eine Stufe
+   kleiner werden. Dieselbe Schwelle, damit beides zusammen umschaltet.
+
+   Woher die 320 kommen: die Breite des Overlays hängt an der Auflösungszeile, und die wird
+   länger, je größer Fenster und Punktdichte sind. Gemessen bei 11 px Schrift:
+   "1154 × 1024 (577 × 512 @ 2×)" = 298, "2059 × 1276 (1373 × 851 @ 1.5×)" = 314,
+   "3840 × 2160 (2560 × 1440 @ 1.5×)" = 320. Gerechnet wird mit dem größten Wert; mit dem
+   mittleren gerechnet stießen die beschrifteten Knöpfe bei rund 1700 px Fensterbreite ans
+   Overlay. Unter 900 px Fensterbreite ist die Schrift ohnehin schon 10 px und das Overlay
+   deutlich schmaler, dort liegt die Rechnung also auf der sicheren Seite. */
+@container kopf (max-width: 636px) {
+  .stats {
+    font-size: 9px;
+    padding: 5px 8px;
+    gap: 8px;
+    border-radius: 6px;
+  }
+
+  .stats__fps {
+    padding-right: 8px;
+  }
+
+  .stats__fps b {
+    font-size: 15px;
+  }
+
+  .stats__fps span {
+    font-size: 8px;
+    letter-spacing: .08em;
+  }
+
+  .stats__list {
+    gap: 0 8px;
+  }
+}
+
+/* Info-Feld zum ausgewählten Bauteil. --x und --y setzt der Viewer auf den Ankerpunkt des
+   Teils in Bildschirmkoordinaten; die Karte wird darüber zentriert und um ihre eigene Höhe
+   plus 16 px nach oben geschoben. Die Polsterung steht bewusst NICHT hier, sondern in
+   .tooltip__body - sonst läge sie doppelt. Im gestapelten Layout unter 900 px wird fast
+   alles davon wieder überschrieben, siehe ganz unten. */
+.tooltip {
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  z-index: 5;
+  width: 292px;
+  max-width: calc(100% - 24px);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, calc(-100% - 16px));
+  animation: tt-in .18s ease-out;
+}
+
+/* Inhaltsebene. Positioniert, damit sie nach dem Pfeil gezeichnet wird: unter positionierten
+   Geschwistern ohne z-index entscheidet die Reihenfolge im Dokument, und ::before steht vor
+   ihr. Dadurch liegt der rote Schein des Knopfes auch auf dem Pfeil. Zugleich Bezugsrahmen
+   für den absolut gesetzten X-Knopf. */
+.tooltip__body {
+  position: relative;
+  padding: 18px 18px 16px;
+}
+
+/* Pfeil: ein um 45 Grad gedrehtes Quadrat, das zur Hälfte aus der Karte herausragt. Die
+   innere Hälfte liegt weiß auf weiß auf der Karte und ist deshalb unsichtbar. Wichtig: hier
+   KEIN eigener box-shadow. Der zeichnete die beiden inneren Kanten auf der Karte nach, und
+   statt einer Spitze sah man ein ganzes Karo. Den Schatten macht der Filter der Karte. */
+/* Pfeil: gedrehtes Quadrat, halb aus der Karte heraus. Als ::before, also VOR der
+   Inhaltsebene gezeichnet, damit der Schein des Knopfes darüber liegt. Kein eigener
+   box-shadow: der zeichnete die beiden inneren Kanten auf der Karte nach, sodass statt
+   einer Spitze das ganze Karo zu sehen war. */
+.tooltip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: var(--surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tooltip.is-below {
+  transform: translate(-50%, 16px);
+}
+
+.tooltip.is-below::before {
+  bottom: auto;
+  top: -7px;
+}
+
+@keyframes tt-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.tooltip__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tooltip__close:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.tooltip .eyebrow {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.tooltip__title {
+  font-size: 16px;
+  margin-bottom: 6px;
+  padding-right: 26px;
+}
+
+.tooltip__info {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.tooltip .btn {
+  width: 100%;
+}
+
+/* ---------- Scan-Overlay ---------- */
+.scan {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  overflow-y: auto;
+  padding: 20px;
+  /* Vollständig deckend, kein Weichzeichner. Beides hat einen Grund:
+     Die 5 % Durchblick von vorher genügten, um die Einmessung dahinter zu sehen - dort läuft
+     die Intro-Animation einmal blind zum Messen, und man sah sie doppelt.
+     Ein backdrop-filter wäre dazu ein bildschirmfüllender Durchgang je Bild, ausgerechnet
+     während die Grafik das Modell aufbaut - und bei diesem Deckungsgrad ohnehin unsichtbar. */
+  background: #0e0e10;
+  opacity: 0;
+  transition: opacity .4s ease;
+}
+
+.scan.is-visible {
+  opacity: 1;
+}
+
+.scan__inner {
+  width: min(100%, 380px);
+  margin: auto;
+  /* zentriert, scrollt aber auf sehr niedrigen Viewports statt abzuschneiden */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.scan__viewfinder {
+  /* Die Kantenlänge steht hier einmal und wird unten für den Weg des Laserstrichs
+     weiterverwendet. Sonst müsste der Weg in Prozent der EIGENEN Höhe ausgedrückt werden,
+     und die beträgt 3 px. */
+  --sucher: min(64vw, 260px);
+  position: relative;
+  width: var(--sucher);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .05);
+}
+
+.scan__corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--red);
+  transition: transform .4s cubic-bezier(.2, .9, .3, 1.3);
+}
+
+.scan__corner--tl {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 12px;
+}
+
+.scan__corner--tr {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 12px;
+}
+
+.scan__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom-left-radius: 12px;
+}
+
+.scan__corner--br {
+  bottom: 0;
+  right: 0;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 12px;
+}
+
+.scan__qr {
+  width: 66%;
+  height: 66%;
+  border-radius: 6px;
+  transition: opacity .3s ease, transform .3s ease;
+}
+
+.scan__laser {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 10%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--red);
+  box-shadow: 0 0 16px 4px rgba(204, 0, 0, .65);
+  animation: laser 1.5s ease-in-out infinite;
+  /* Eigene Ebene anfordern, damit der Strich vom Compositor gezeichnet wird. */
+  will-change: transform;
+}
+
+/* Bewegt wird über transform, nicht über top. top ist eine Layout-Eigenschaft: der Browser
+   müsste für jedes Bild neu rechnen und zeichnen, und zwar auf dem Hauptthread - genau dem,
+   der beim Laden des Modells blockiert ist. Der Strich blieb dadurch stehen. transform läuft
+   auf dem Compositor und ist von der Blockade nicht betroffen.
+   Der Weg ist derselbe wie vorher: von 10 % auf 88 % der Sucherhöhe, also 78 % davon. */
+@keyframes laser {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(calc(var(--sucher) * .78));
+  }
+}
+
+.scan__check {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(.5);
+  transition: opacity .25s ease, transform .4s cubic-bezier(.2, .9, .3, 1.4);
+}
+
+.scan__check svg {
+  width: 88px;
+  height: 88px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .4));
+}
+
+.scan.is-found .scan__laser {
+  display: none;
+}
+
+.scan.is-found .scan__qr {
+  opacity: .28;
+  transform: scale(.94);
+}
+
+.scan.is-found .scan__check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scan.is-found .scan__corner--tl {
+  transform: translate(10px, 10px);
+}
+
+.scan.is-found .scan__corner--tr {
+  transform: translate(-10px, 10px);
+}
+
+.scan.is-found .scan__corner--bl {
+  transform: translate(10px, -10px);
+}
+
+.scan.is-found .scan__corner--br {
+  transform: translate(-10px, -10px);
+}
+
+.scan__card {
+  width: 100%;
+  padding: 20px 24px 18px;
+  text-align: center;
+  color: var(--ink);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.scan__card h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.scan__card p {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+
+.scan__progress {
+  height: 4px;
+  margin-top: 16px;
+  border-radius: 2px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Gestaucht statt schmal: width ist wie top eine Layout-Eigenschaft und hätte denselben
+   Ruckler zur Folge. scaleX vom linken Rand aus sieht identisch aus und läuft auf dem
+   Compositor. */
+.scan__progress span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--red);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 2.4s linear;
+  will-change: transform;
+}
+
+.scan.is-visible .scan__progress span {
+  transform: scaleX(1);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .viewer {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: calc(100vh - var(--header-h));
+  }
+
+  /* Auf Querformat-Handys bleibt unter der Bühne immer etwas Liste sichtbar,
+     sonst blockiert der Canvas (touch-action: none) jedes Scrollen. */
+  .viewer__stage {
+    height: min(56vh, 520px);
+    min-height: min(320px, calc(100vh - var(--header-h) - 120px));
+    min-height: min(320px, calc(100dvh - var(--header-h) - 120px));
+  }
+
+  /* Tooltip als Panel im Dokumentfluss direkt unter dem Canvas, verdeckt nichts */
+  .tooltip,
+  .tooltip.is-below {
+    position: relative;
+    /* im Fluss, aber Bezugsrahmen für den absolut gesetzten X-Button */
+    left: auto;
+    top: auto;
+    width: auto;
+    max-width: none;
+    transform: none;
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid var(--line);
+    animation: panel-in .2s ease-out;
+  }
+
+  .tooltip__body {
+    padding: 16px 20px 18px;
+  }
+
+  .tooltip::before {
+    display: none;
+  }
+
+  .tooltip .btn {
+    width: auto;
+  }
+
+  .viewer__side {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 760px) {
+  .steps {
+    grid-template-columns: 1fr;
+    padding-bottom: 60px;
+  }
+
+  .btn--xl {
+    font-size: 17px;
+    padding: 17px 28px;
+  }
+
+  .logo {
+    font-size: 25px;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .viewer__hint {
+    display: none;
+  }
+
+  .viewer__top {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    gap: 8px;
+  }
+
+  .viewer__toolbar {
+    gap: 6px;
+  }
+}
+
+@media (max-height: 520px) {
+  .scan__viewfinder {
+    --sucher: min(64vw, 260px, 44vh);
+  }
+
+  .scan__inner {
+    gap: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .btn--xl::after,
+  .scan__laser {
+    animation: none;
+  }
+
+  .screen,
+  .scan,
+  .scan__corner,
+  .scan__check,
+  .scan__qr {
+    transition-duration: .01ms;
+  }
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  background: var(--ink);
+  color: rgba(255, 255, 255, .72);
+  padding: 46px clamp(16px, 4vw, 40px) 30px;
+}
+
+.footer__inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 30px;
+}
+
+/* Schmal: Name und Zusatz übereinander statt nebeneinander. Auf dem Viewer-Bildschirm steht
+   rechts neben der Navigation zusätzlich "Neu scannen"; einzeilig blieben dem Logo dort nur
+   rund 145 px, und der Knopf wurde abgeschnitten. Zweizeilig passt der volle Name hinein, ohne
+   dass "Demo" verschwinden muss. */
+@media (max-width: 576px) {
+  .logo {
+    display: grid;
+    /* Mitwachsend auch hier: bei 320 px bleiben dem Logo neben Shop und "Neu scannen"
+       nur rund 100 px. */
+    font-size: clamp(13px, 3.6vw, 16px);
+    line-height: 1.15;
+  }
+
+  .nav {
+    gap: 14px;
+  }
+
+  .logo__tag {
+    margin-left: 0;
+    font-size: .62em;
+  }
+}
+
+/* "Demo" als kleinerer Zusatz hinter dem Namen: so bleibt "Explosion View" der Name der Sache
+   (später der Menüpunkt in der Service-Parts-Anwendung) und "Demo" nur der Vermerk, dass dies
+   hier der Showcase ist. Nebenbei spart es Breite. */
+.logo__tag {
+  margin-left: .45em;
+  font-size: .5em;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .72;
+}
+
+.footer__logo {
+  margin: 0;
+  font-family: var(--font-logo);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: .035em;
+  line-height: 1;
+  color: #fff;
+}
+
+.footer p:not(.footer__logo) {
+  margin: 12px 0 0;
+  max-width: 36ch;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.footer h2 {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: #fff;
+}
+
+.footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.footer a {
+  color: rgba(255, 255, 255, .78);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.footer :focus-visible {
+  outline-color: #fff;
+}
+
+.footer__bottom {
+  max-width: 1040px;
+  margin: 32px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .16);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, .6);
+}
+
+@media (max-width: 760px) {
+  .footer__inner {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+
+  .footer {
+    padding-top: 36px;
+  }
+}

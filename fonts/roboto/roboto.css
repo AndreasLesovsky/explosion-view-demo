@@ -1,0 +1,91 @@
+/* Roboto v51 – lokal, Subset latin. Das ist --font-body, also die Schrift fast der
+   ganzen Seite: sie steht auf body und vererbt an alles ausser der Wortmarke.
+
+   Pfade sind relativ zu DIESER Datei. Wird ihr Inhalt nach css/style.css kopiert,
+   muessen die url() mitwandern (von dort aus: ../fonts/roboto/...).
+
+   Deklariert ist nur, was die Seite anfordert. Der Ordner enthaelt daneben die
+   Schnitte 100, 200, 800 und saemtliche Kursiven ausser 400/700 — sie werden von
+   keiner Regel verlangt und muessen nicht mit auf den Server.
+
+   font-display: swap ist Absicht. Die Seite wird per QR-Code aufgerufen, also fast
+   immer mit leerem Cache; "optional" wuerde bei genau diesem Besuch die Schrift
+   ganz weglassen und alles in Segoe UI zeigen. */
+
+/* 300 – .lead, der Einleitungsabsatz unter der Hero-Ueberschrift. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('roboto-v51-latin-300.woff2') format('woff2');
+}
+
+/* 400 – der gesamte Fliesstext. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('roboto-v51-latin-regular.woff2') format('woff2');
+}
+
+/* 500 – Kopfnavigation, alle Knopfbeschriftungen, Bauteilnamen in der Liste,
+   das Namensschild am Mauszeiger, der Fehlertext des Viewers. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('roboto-v51-latin-500.woff2') format('woff2');
+}
+
+/* 600 – nur .stats__fps b, die FPS-Zahl im Leistungs-Overlay. Die Regel wollte das
+   Standard-Fett des <b> abmildern; mit Google ging der Wunsch ins Leere (dort fehlte
+   600, der Browser nahm 700). v51 hat den Schnitt, also greift die Absicht jetzt
+   wirklich. Wer die Zahl lieber voll fett haette: diesen Block loeschen, dann faellt
+   sie wie bisher auf 700. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('roboto-v51-latin-600.woff2') format('woff2');
+}
+
+/* 700 – h2/h3/h4, .eyebrow, der grosse Scan-Knopf, die Schrittziffern. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('roboto-v51-latin-700.woff2') format('woff2');
+}
+
+/* 900 – ausschliesslich die Hero-Ueberschrift h1. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('roboto-v51-latin-900.woff2') format('woff2');
+}
+
+/* Kursiv: in der Seite steht kein font-style: italic und kein em/i/cite, diese beiden
+   werden also nie angefordert. Deklariert bleiben sie, damit Kursiv echte Schnitte
+   bekaeme statt schraeg gescherter Buchstaben, falls sie spaeter vorkommt. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('roboto-v51-latin-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('roboto-v51-latin-700italic.woff2') format('woff2');
+}

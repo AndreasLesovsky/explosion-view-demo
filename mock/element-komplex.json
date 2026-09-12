@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1.1",
+  "units": "mm",
+  "sizeReference": "outerFrame",
+  "viewingConvention": "inside",
+  "element": { "id": "FK-2026-0912", "orderNo": "A-2021-078311", "orderPosition": 7, "quantity": 1, "producedAt": "2021-09", "manufacturer": "Musterfenster GmbH" },
+  "opening": { "wallThickness": 300, "frameSetback": 50 },
+  "frame": {
+    "shape": "rect",
+    "outerSize": { "w": 1800, "h": 2100 },
+    "material": "pvc",
+    "profile": {
+      "systemId": "rehau-synego",
+      "systemLabel": "Rehau Synego",
+      "profileId": "MD-80",
+      "snapshot": { "faceWidth": 76, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+    },
+    "decor": { "inside": "white-9016", "outside": "golden-oak-foil" }
+  },
+  "layout": {
+    "type": "split",
+    "arrangement": "stacked",
+    "divider": {
+      "type": "transom",
+      "profileId": "PF-80",
+      "snapshot": { "faceWidth": 80, "depth": 80 }
+    },
+    "children": [
+      {
+        "size": 500,
+        "node": {
+          "type": "sash",
+          "sashId": 2,
+          "opening": "tilt",
+          "hinge": "bottom",
+          "profile": {
+            "profileId": "SF-70",
+            "snapshot": { "faceWidth": 85, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+          },
+          "handle": { "assetId": "handle-standard-alu", "heightFromBottom": 250, "square": 7, "lockable": false },
+          "glazing": {
+            "buildUp": [4, 16, 4, 16, 4],
+            "spacerColor": "warm-edge-black",
+            "ornament": null,
+            "bars": null,
+            "beadProfileId": "GL-24"
+          },
+          "seals": [
+            { "role": "glazing", "profileId": "D-123", "color": "black" },
+            { "role": "rebate", "profileId": "D-140", "color": "grey" }
+          ]
+        }
+      },
+      {
+        "size": 1368,
+        "node": {
+          "type": "split",
+          "arrangement": "sideBySide",
+          "divider": {
+            "type": "mullion",
+            "profileId": "PF-80",
+            "snapshot": { "faceWidth": 80, "depth": 80 }
+          },
+          "children": [
+            {
+              "size": 784,
+              "node": {
+                "type": "sash",
+                "sashId": 0,
+                "opening": "turn-tilt",
+                "hinge": "left",
+                "profile": {
+                  "profileId": "SF-70",
+                  "snapshot": { "faceWidth": 85, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+                },
+                "handle": { "assetId": "handle-standard-alu", "heightFromBottom": 620, "square": 7, "lockable": false },
+                "glazing": {
+                  "buildUp": [4, 16, 4, 16, 4],
+                  "spacerColor": "warm-edge-black",
+                  "ornament": null,
+                  "bars": null,
+                  "beadProfileId": "GL-24"
+                },
+                "seals": [
+                  { "role": "glazing", "profileId": "D-123", "color": "black" },
+                  { "role": "rebate", "profileId": "D-140", "color": "grey" }
+                ]
+              }
+            },
+            {
+              "size": 784,
+              "node": {
+                "type": "sash",
+                "sashId": 1,
+                "opening": "turn",
+                "hinge": "right",
+                "profile": {
+                  "profileId": "SF-70",
+                  "snapshot": { "faceWidth": 85, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+                },
+                "handle": { "assetId": "handle-standard-alu", "heightFromBottom": 620, "square": 7, "lockable": true },
+                "glazing": {
+                  "buildUp": [4, 16, 4, 16, 4],
+                  "spacerColor": "warm-edge-black",
+                  "ornament": "mastercarre",
+                  "bars": null,
+                  "beadProfileId": "GL-24"
+                },
+                "seals": [
+                  { "role": "glazing", "profileId": "D-123", "color": "black" },
+                  { "role": "rebate", "profileId": "D-140", "color": "grey" }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "hardware": { "brand": "Roto", "series": "NT", "generation": 1 },
+  "accessories": {
+    "sillInside": { "depth": 250, "decor": "white-9016" },
+    "sillOutside": { "depth": 180, "material": "aluminium", "decor": "brown-8014" },
+    "shutter": { "type": "rollerShutterBox", "boxHeight": 240, "boxPosition": "aboveFrame", "decor": "white-9016" },
+    "insectScreen": null
+  },
+  "parts": [
+    {"nodeId": "sash[0].handle", "label": "Fenstergriff links", "category": "griffe", "quantity": 1, "orderable": true, "articleNo": "BS-10-4711", "successorArticleNo": "BS-10-4990", "info": "Aluminium, Dreh-Kipp-Griff, Vierkantstift 7 mm"},
+    {"nodeId": "sash[1].handle", "label": "Fenstergriff rechts", "category": "griffe", "quantity": 1, "orderable": true, "articleNo": "BS-10-4712", "successorArticleNo": null, "info": "Aluminium, abschließbar, Vierkantstift 7 mm"},
+    {"nodeId": "sash[2].handle", "label": "Fenstergriff Oberlicht", "category": "griffe", "quantity": 1, "orderable": true, "articleNo": "BS-10-4711", "successorArticleNo": "BS-10-4990", "info": "Aluminium, Kippgriff, Vierkantstift 7 mm"},
+    {"nodeId": "sash[0].gear", "label": "Getriebe links", "category": "getriebe", "quantity": 1, "orderable": true, "articleNo": "RO-NT-2210", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[1].gear", "label": "Getriebe rechts", "category": "getriebe", "quantity": 1, "orderable": true, "articleNo": "RO-NT-2210", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[2].gear", "label": "Getriebe Oberlicht", "category": "getriebe", "quantity": 1, "orderable": true, "articleNo": "RO-NT-2180", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].stay", "label": "Ausstellschere links", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "RO-NT-6200", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[2].stay", "label": "Ausstellschere Oberlicht", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "RO-NT-6180", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].glazing", "label": "Verglasung links", "category": "verglasung", "quantity": 1, "orderable": true, "articleNo": "GL-3F-4164164", "successorArticleNo": null, "info": "3-fach, Ug 0,6, warme Kante"},
+    {"nodeId": "sash[1].glazing", "label": "Verglasung rechts", "category": "verglasung", "quantity": 1, "orderable": true, "articleNo": "GL-3F-MC", "successorArticleNo": null, "info": "3-fach, Ornament Mastercarré"},
+    {"nodeId": "sash[2].glazing", "label": "Verglasung Oberlicht", "category": "verglasung", "quantity": 1, "orderable": true, "articleNo": "GL-3F-4164164", "successorArticleNo": null, "info": "3-fach, Ug 0,6, warme Kante"},
+    {"nodeId": "mullion[0]", "label": "Pfosten", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-PF-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "transom[0]", "label": "Kämpfer", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-PF-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.left", "label": "Blendrahmen links", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.right", "label": "Blendrahmen rechts", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.top", "label": "Blendrahmen oben", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.bottom", "label": "Blendrahmen unten", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.joint", "label": "Anschlussfuge", "category": "dichtmassen", "quantity": 1, "orderable": true, "articleNo": "DM-500", "successorArticleNo": null, "info": null}
+  ]
+}

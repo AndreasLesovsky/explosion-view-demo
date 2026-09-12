@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.1",
+  "units": "mm",
+  "sizeReference": "outerFrame",
+  "viewingConvention": "inside",
+  "element": { "id": "FK-2026-0417", "orderNo": "A-2019-114520", "orderPosition": 3, "quantity": 1, "producedAt": "2019-05", "manufacturer": "Musterfenster GmbH" },
+  "opening": { "wallThickness": 365, "frameSetback": 60 },
+  "frame": {
+    "shape": "rect",
+    "outerSize": { "w": 1200, "h": 1400 },
+    "material": "pvc",
+    "profile": {
+      "systemId": "rehau-synego",
+      "systemLabel": "Rehau Synego",
+      "profileId": "MD-80",
+      "snapshot": { "faceWidth": 76, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+    },
+    "decor": { "inside": "white-9016", "outside": "anthracite-foil-7016" }
+  },
+  "layout": {
+    "type": "sash",
+    "sashId": 0,
+    "opening": "turn-tilt",
+    "hinge": "left",
+    "profile": {
+      "profileId": "SF-70",
+      "snapshot": { "faceWidth": 85, "depth": 80, "glazingRebate": 20, "overlap": 8 }
+    },
+    "handle": { "assetId": "handle-standard-alu", "heightFromBottom": 620, "square": 7, "lockable": false },
+    "glazing": {
+      "buildUp": [4, 16, 4, 16, 4],
+      "spacerColor": "warm-edge-black",
+      "ornament": null,
+      "bars": null,
+      "beadProfileId": "GL-24"
+    },
+    "seals": [
+      { "role": "glazing", "profileId": "D-123", "color": "black" },
+      { "role": "rebate", "profileId": "D-140", "color": "grey" }
+    ]
+  },
+  "hardware": { "brand": "Siegenia", "series": "Titan AF", "generation": 2 },
+  "accessories": {
+    "sillInside": { "depth": 200, "decor": "white-9016" },
+    "sillOutside": { "depth": 150, "material": "aluminium", "decor": "anthracite-7016" },
+    "shutter": null,
+    "insectScreen": null
+  },
+  "parts": [
+    {"nodeId": "sash[0].handle", "label": "Fenstergriff", "category": "griffe", "quantity": 1, "orderable": true, "articleNo": "BS-10-4711", "successorArticleNo": "BS-10-4990", "info": "Aluminium, Dreh-Kipp-Griff, Vierkantstift 7 mm"},
+    {"nodeId": "sash[0].gear", "label": "Getriebe", "category": "getriebe", "quantity": 1, "orderable": true, "articleNo": "SI-TA-2210", "successorArticleNo": null, "info": "Getriebe Titan AF, Dornmaß 15 mm"},
+    {"nodeId": "sash[0].driveRod", "label": "Treibstange", "category": "beschlagteile", "quantity": 1, "orderable": true, "articleNo": "SI-TA-3105", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].cornerDrive.top", "label": "Eckumlenkung oben", "category": "beschlagteile", "quantity": 1, "orderable": true, "articleNo": "SI-TA-3311", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].cornerDrive.bottom", "label": "Eckumlenkung unten", "category": "beschlagteile", "quantity": 1, "orderable": true, "articleNo": "SI-TA-3312", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].cam", "label": "Schließzapfen", "category": "schliesszapfen", "quantity": 1, "orderable": true, "articleNo": "SI-TA-4020", "successorArticleNo": null, "info": "Pilzkopfzapfen"},
+    {"nodeId": "sash[0].misoperationLock", "label": "Fehlbedienungssperre", "category": "beschlagteile", "quantity": 1, "orderable": true, "articleNo": "SI-TA-5001", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].sashLifter", "label": "Flügelheber", "category": "beschlagteile", "quantity": 1, "orderable": true, "articleNo": "SI-TA-5110", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].stay", "label": "Ausstellschere", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6200", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].hinge.top", "label": "Scherenlager oben", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6310", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].hinge.top.cap", "label": "Scherenlagerkappe Flügel oben", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6311", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].hinge.bottom", "label": "Ecklager unten", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6320", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].hinge.bottom.cap", "label": "Ecklagerkappe Flügel unten", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6321", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].cornerHinge", "label": "Eckband", "category": "beschlaege", "quantity": 1, "orderable": true, "articleNo": "SI-TA-6400", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].glazing", "label": "Verglasung", "category": "verglasung", "quantity": 1, "orderable": true, "articleNo": "GL-3F-4164164", "successorArticleNo": null, "info": "3-fach, Ug 0,6, warme Kante", "size": {"w": 1030, "h": 1230}},
+    {"nodeId": "sash[0].bead", "label": "Glasleiste", "category": "glasleisten", "quantity": 1, "orderable": true, "articleNo": "RE-GL-24", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].glazingSeal", "label": "Glasdichtung", "category": "dichtungen", "quantity": 1, "orderable": true, "articleNo": "RE-D-123", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].rebateSeal", "label": "Anschlagdichtung", "category": "dichtungen", "quantity": 1, "orderable": true, "articleNo": "RE-D-140", "successorArticleNo": null, "info": null},
+    {"nodeId": "sash[0].frame", "label": "Flügelrahmen", "category": "fluegelrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-SF-70", "successorArticleNo": null, "info": null},
+    {"nodeId": "strike.handleSide", "label": "Schließbleche Griffseite", "category": "schliessstuecke", "quantity": 1, "orderable": true, "articleNo": "SI-TA-7010", "successorArticleNo": null, "info": null},
+    {"nodeId": "strike.top", "label": "Schließblech oben", "category": "schliessstuecke", "quantity": 1, "orderable": true, "articleNo": "SI-TA-7020", "successorArticleNo": null, "info": null},
+    {"nodeId": "strike.bottom", "label": "Schließblech unten", "category": "schliessstuecke", "quantity": 1, "orderable": true, "articleNo": "SI-TA-7030", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.left", "label": "Blendrahmen links", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.right", "label": "Blendrahmen rechts", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.top", "label": "Blendrahmen oben", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.bottom", "label": "Blendrahmen unten", "category": "blendrahmen", "quantity": 1, "orderable": true, "articleNo": "RE-MD-80", "successorArticleNo": null, "info": null},
+    {"nodeId": "frame.joint", "label": "Anschlussfuge", "category": "dichtmassen", "quantity": 1, "orderable": true, "articleNo": "DM-500", "successorArticleNo": null, "info": null}
+  ]
+}

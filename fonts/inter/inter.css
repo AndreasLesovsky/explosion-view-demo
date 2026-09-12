@@ -1,0 +1,79 @@
+/* Inter – lokal, Subset latin.
+   Verwendet wird Inter ausschliesslich fuer die Wortmarke: .logo im Kopf und
+   .footer__logo im Fuss (css/style.css, --font-logo). Der Zusatz "Demo" ist ein
+   span darin und erbt die Familie mit.
+
+   Pfade sind relativ zu DIESER Datei. Wird sie verschoben oder ihr Inhalt nach
+   css/style.css kopiert, muessen die url() mitwandern (von dort aus: ../fonts/inter/...).
+
+   font-display: swap ist Absicht. Die Seite wird per QR-Code aufgerufen, also fast
+   immer mit leerem Cache; "optional" wuerde bei genau diesem einen Besuch die
+   Schrift ganz weglassen und die Marke in Segoe UI zeigen. */
+
+/* 400 – von keiner Regel direkt angefordert. Bleibt als unterer Anker deklariert:
+   ohne ihn muesste jeder Wunsch unterhalb 500 nach oben ausweichen. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('inter-v20-latin-regular.woff2') format('woff2');
+}
+
+/* 500 – der Zusatz "Demo" (.logo__tag). Leicht zu uebersehen: er steht als span IN
+   .logo bzw. .footer__logo und erbt damit --font-logo, ist also Inter und nicht Roboto. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('inter-v20-latin-500.woff2') format('woff2');
+}
+
+/* 600 – die Wortmarke "Explosion View", Kopf und Fuss. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('inter-v20-latin-600.woff2') format('woff2');
+}
+
+/* 800 – derzeit von keiner Regel angefordert. Bleibt als Reserve deklariert;
+   der Browser laedt eine Datei erst, wenn sie wirklich gebraucht wird. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('inter-v20-latin-800.woff2') format('woff2');
+}
+
+/* 900 – fuer das "D" im Favicon. Dort eingebettet, hier nur der Vollstaendigkeit halber. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('inter-v20-latin-900.woff2') format('woff2');
+}
+
+/* Kursiv: in der ganzen Seite steht kein font-style: italic und kein em/i/cite.
+   Die beiden Dateien werden deshalb nie angefordert. Deklariert bleiben sie, damit
+   Kursiv echte Schnitte bekommt statt schraeg gescherter Buchstaben, falls sie
+   spaeter einmal vorkommt. */
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('inter-v20-latin-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url('inter-v20-latin-800italic.woff2') format('woff2');
+}
