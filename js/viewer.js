@@ -295,14 +295,21 @@ const MIN_DIST = 0.7;          // m, Mindestabstand Kamera zu Blickpunkt (eingeb
 // sonst beim Blick von schräg unten die Neigung zurück, statt nur die Höhe zu begrenzen, und
 // die untere Ecke rückt wieder aus dem Bild.
 const FLOOR_CLEARANCE = 0.08;
-// Drehgeschwindigkeit in der Übersicht und beim vollen Heranzoomen, dazwischen mit derselben
-// Kurve überblendet wie die Kopplung. Grund für die Absenkung: nah am Fenster ist die Kopplung steil (der
-// Blickpunkt erreicht die Ecke innerhalb von rund 12 Grad), dieselbe Fingerbewegung schiebt
-// das Bild dort um ein Vielfaches. Mit 0.3 fuhr die Ansicht mit einem kurzen Zug quer über
-// den Rahmen; mit 0.05 verschieben 100 Pixel Zug am Mindestabstand das Bild um etwa ein
-// Fünftel seiner Breite (Rechnung in der Doku zum Kameramodell).
+// Drehgeschwindigkeit in der Übersicht und am Mindestabstand. Dazwischen wird nicht die
+// Geschwindigkeit überblendet, sondern der Bildweg je Zug (siehe tick): nah am Fenster ist die
+// Kopplung steil (der Blickpunkt erreicht die Ecke innerhalb von rund 12 Grad), dieselbe
+// Fingerbewegung schiebt das Bild dort um ein Vielfaches. Mit 0.3 fuhr die Ansicht mit einem
+// kurzen Zug quer über den Rahmen. Mit 0.05 fährt das Bild am Mindestabstand bei einem Zug
+// über die volle Bühnenhöhe rund 2,5 Bildhöhen weit; in der Übersicht dreht derselbe Zug um
+// 250 Grad.
 const ROTATE_SPEED = 0.7;
 const ROTATE_SPEED_NEAR = 0.05;
+// Ab welcher Nähe (0 = Home-Distanz, 1 = Mindestabstand) die Kopplung des Blickpunkts an die
+// Drehung einsetzt. Weiter draußen dreht die Kamera rein um die Fenstermitte. Bewusst nicht
+// null: begann die Kopplung schon auf Home-Distanz, fuhr der Blickpunkt bei halbem Zoom je
+// Grad Drehung anderthalbmal so weit seitlich wie der Orbit-Weg, und die Ansicht rutschte
+// von Kante zu Kante, statt sich zu drehen. Mit 0.4 beginnt sie bei rund 2,1 m.
+const COUPLING_START = 0.4;
 // Neigung nach oben und nach unten gleich weit (rad, gemessen von +y). Die Boden- und
 // Wandschranke in applyNearLimits() engt das nah am Fenster zusätzlich ein.
 const POLAR_TILT = 2.3;
@@ -1370,12 +1377,8 @@ export class WindowViewer {
     // Nah: auf dem Rahmen. Seite, auf der die Kamera relativ zur Wandnormale steht, als Winkel;
     // gilt innen (Kamera bei +z) wie außen (bei -z), jeweils zur Kamera hin positiv.
     const side = Math.asin(clamp(Math.sin(theta), -1, 1));
-    // Überblendung zwischen Home-Distanz (0) und Mindestabstand (1). Weich statt linear:
-    // Linear knickt die Kameraspur an beiden Enden sichtbar ab, weil die Kopplung dort
-    // schlagartig einsetzt beziehungsweise aufhört. Gemessen waren das 17 Grad Richtungs-
-    // wechsel beim Überfahren der Home-Distanz. Mit smoothstep ist die Ableitung an beiden
-    // Enden null, die Spur läuft ohne Knick durch.
-    const u = smoothstep(0, 1, clamp((this.homeDist - dist) / Math.max(this.homeDist - MIN_DIST, 0.1), 0, 1));
+    // Überblendung zwischen Kopplungsschwelle (0) und Mindestabstand (1), siehe naehe().
+    const u = this.naehe(dist);
     const nearX = softLimit(pc.xFrame * side, -pc.xMax, pc.xMax);
     // Stetig über die Waagrechte hinweg: bei dPhi = 0 ist beides null. yFrameUp und yFrame
     // sind getrennt, damit oben und unten unabhängig eingestellt werden können; aktuell
@@ -1603,12 +1606,20 @@ export class WindowViewer {
     const now = performance.now();
     let changed = this.updateTweens(now);
     if (!this.hasTween('camera') && !this.hasTween('view')) {
-      // Nah am Fenster feiner drehen (siehe ROTATE_SPEED_NEAR), mit derselben Kurve, mit der
-      // die Kopplung zunimmt (couplingOffset): wo der Blickpunkt mitwandert, dreht die Kamera
-      // langsamer. Linear in `nah` gab es bei 1,5 m einen Hotspot — Kopplung schon bei 72 %,
-      // Drehung noch bei 0,31.
+      // Drehgeschwindigkeit aus dem Bildweg je Zug, nicht aus einer Überblendung der
+      // Geschwindigkeit. Je Radiant Drehung bewegt sich das Bild um den Orbit-Weg (d) plus den
+      // Schwenk der Kopplung (G·u), gemessen relativ zur Bildhöhe (∝ d). Dieser Bildweg wird
+      // zwischen Übersicht und Mindestabstand linear überblendet und die Geschwindigkeit
+      // daraus zurückgerechnet. Überblendet man stattdessen die Geschwindigkeit, hat das
+      // Produkt aus fallender Drehung und steigender Kopplung in der Mitte eine Beule: bei
+      // 1,7 m fuhr der Blickpunkt je Zug 3,7-mal so weit wie am Mindestabstand — der Nutzer
+      // meldete „schwenkt in der Mitte des Zooms zu schnell von einer Seite zur anderen".
       const nah = this.nahWert();
-      this.controls.rotateSpeed = ROTATE_SPEED + (ROTATE_SPEED_NEAR - ROTATE_SPEED) * smoothstep(0, 1, nah);
+      const d = this.camera.position.distanceTo(this.controls.target);
+      const u = this.naehe(d);
+      const G = this.panCoupling.xFrame;
+      const wegNah = ROTATE_SPEED_NEAR * (MIN_DIST + G) / MIN_DIST;   // Bildweg je Radiant am Mindestabstand
+      this.controls.rotateSpeed = (ROTATE_SPEED * (1 - u) + wegNah * u) * d / (d + G * u);
       this.applyNearLimits(nah);
       if (this.controls.update()) changed = true;
       if (this.applyPanCoupling()) changed = true;
@@ -1682,7 +1693,7 @@ export class WindowViewer {
       else this.panLag.add(d);
       moved = true;
     }
-    const naehe = smoothstep(0, 1, this.nahWert());
+    const naehe = this.naehe(cam.distanceTo(t));
     if (naehe <= 0) this.panLag.set(0, 0, 0);
     const off = this._dirTmp.copy(cam).addScaledVector(this.panLag, naehe).sub(t);
     const dist = off.length();
@@ -1708,11 +1719,21 @@ export class WindowViewer {
     return moved;
   }
 
-  // 0 = Home-Distanz oder weiter weg, 1 = Mindestabstand.
+  // 0 = Home-Distanz oder weiter weg, 1 = Mindestabstand. Linear; Bezug für die Winkelgrenzen.
   // @returns {number}
   nahWert() {
     const d = this.camera.position.distanceTo(this.controls.target);
     return clamp((this.homeDist - d) / Math.max(this.homeDist - MIN_DIST, 0.1), 0, 1);
+  }
+
+  // Kopplungsstärke 0 … 1 für einen Abstand `dist`: null ab COUPLING_START nach außen, eins am
+  // Mindestabstand, dazwischen smoothstep — die Ableitung ist an beiden Enden null, die
+  // Kameraspur knickt beim Überfahren der Schwelle nicht (linear waren es 17 Grad Richtungs-
+  // wechsel). Gilt für den Versatz (couplingOffset), den Rückstand (applyPanCoupling) und die
+  // Drehgeschwindigkeit (tick), damit alle drei an derselben Stelle einsetzen.
+  // @returns {number}
+  naehe(dist) {
+    return smoothstep(COUPLING_START, 1, clamp((this.homeDist - dist) / Math.max(this.homeDist - MIN_DIST, 0.1), 0, 1));
   }
 
   // Winkelgrenzen, die mit dem Zoom enger werden. Weit weg sind es die Raum-Schranken (Wand,
