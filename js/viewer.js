@@ -50,6 +50,18 @@ export const PART_META = {
     category: 'dichtungen',
     categoryLabel: 'Alle Dichtungen',
   },
+  Falzdichtung: {
+    label: 'Falzdichtung',
+    info: 'Äußere Falzdichtung am Flügel, EPDM, schließt die Falzluft zur Außenseite',
+    category: 'dichtungen',
+    categoryLabel: 'Alle Dichtungen',
+  },
+  Fensterbank_aussen: {
+    label: 'Außenfensterbank',
+    info: 'Aluminium, weiß pulverbeschichtet, 1,5 mm Blech, 6 Grad Gefälle, 40 mm Tropfkante mit Haken',
+    category: 'fensterbaenke',
+    categoryLabel: 'Alle Fensterbänke',
+  },
   Glasleiste: {
     label: 'Glasleiste',
     info: 'Glashalteleiste innen, vier Teile auf Gehrung, 20 mm Ansichtsbreite',
@@ -196,7 +208,7 @@ const CATEGORY_GROUPS = {
   griffe: 'Griff und Beschlag', getriebe: 'Griff und Beschlag', beschlagteile: 'Griff und Beschlag',
   schliessstuecke: 'Griff und Beschlag', beschlaege: 'Griff und Beschlag',
   verglasung: 'Glas und Dichtungen', glasleisten: 'Glas und Dichtungen', dichtungen: 'Glas und Dichtungen',
-  fluegelrahmen: 'Rahmen', blendrahmen: 'Rahmen', dichtmassen: 'Rahmen',
+  fluegelrahmen: 'Rahmen', blendrahmen: 'Rahmen', dichtmassen: 'Rahmen', fensterbaenke: 'Rahmen',
 };
 
 // Reihenfolge für die Bauteil-Liste; unbekannte Nodes werden hinten angehängt.
@@ -204,9 +216,9 @@ export const PART_ORDER = [
   'Griff', 'Getriebe', 'Treibstange', 'Eckumlenkung_oben', 'Eckumlenkung_unten', 'Schliesszapfen',
   'Fehlbedienungssperre', 'Fluegelheber', 'Schliessblech_rechts', 'Schliessblech_oben', 'Schliessblech_unten',
   'Band_oben', 'Band_oben_Fluegel', 'Band_unten', 'Band_unten_Fluegel', 'Schere', 'Eckband',
-  'Glas', 'Glasleiste', 'Dichtung', 'Anschlagdichtung',
+  'Glas', 'Glasleiste', 'Dichtung', 'Anschlagdichtung', 'Falzdichtung',
   'Fluegel', 'Rahmen_links', 'Rahmen_rechts', 'Rahmen_oben', 'Rahmen_unten',
-  'Anschlussfuge',
+  'Anschlussfuge', 'Fensterbank_aussen',
 ];
 
 export function isHoverable(obj) {
@@ -227,6 +239,8 @@ const EXPLODE_OFFSETS = {
   Rahmen_oben:      [ 0, 0.28, 0],
   Rahmen_unten:     [ 0, -0.28, 0],
   Anschlussfuge:    [ 0, 0, 0.12],
+  // Falzdichtung sitzt außen auf dem Flügel: eine Ebene hinter ihm, zwischen Fuge und Flügel.
+  Falzdichtung:     [ 0, 0, 0.2],
   Fluegel:          [ 0, 0, 0.3],
   Band_oben:        [-0.5, 0, 0.3],
   Band_unten:       [-0.5, 0, 0.3],
@@ -236,6 +250,11 @@ const EXPLODE_OFFSETS = {
   Glasleiste:       [ 0, 0, 0.9],
   Griff:            [ 0.16, 0, 1.05],
 };
+// Bauteile, die zum Bau gehören, nicht zur Baugruppe: anklickbar und im Shop, aber sie
+// stehen in Intro und Explosion still und zählen nicht zur Fenster-Box (die bestimmt
+// Home-Blickpunkt, Explosionshub und Kameragrenzen). Die Außenfensterbank hängt 6 cm unter
+// dem Rahmen und ragt 17 cm nach außen — in der Box hätte sie den Hub um ebenso viel vergrößert.
+const STATIC_PARTS = new Set(['Fensterbank_aussen']);
 // Teile ohne eigenen Eintrag bekommen ihren Versatz aus der Custom Property `mount`:
 // sash = fährt mit dem Flügel, frame = spreizt mit der jeweiligen Rahmenseite,
 // hinge = schwenkt zur Bandseite aus.
@@ -250,6 +269,7 @@ const HARDWARE_MATERIAL = 'Beschlag_Stahl';
 // Start-Verzögerung je Bauteil in der Intro-Animation (Anteil der Gesamtdauer).
 const INTRO_DELAY = {
   Rahmen_links: 0, Rahmen_rechts: 0, Rahmen_oben: 0.06, Rahmen_unten: 0.06, Anschlussfuge: 0.04,
+  Falzdichtung: 0.16,
   Fluegel: 0.2, Band_oben: 0.25, Band_unten: 0.25, Anschlagdichtung: 0.28,
   Dichtung: 0.32, Glas: 0.38, Glasleiste: 0.43, Griff: 0.5,
 };
@@ -258,7 +278,7 @@ const MOUNT_INTRO_DELAY = { sash: 0.22, frame: 0.03, hinge: 0.25 };
 // Dünne Teile, die im Modell bündig auf einer anderen Fläche liegen: minimal versetzen,
 // sonst flackern sie (Z-Fighting) und der Raycast trifft zufällig das Teil dahinter. Meter.
 const FLUSH_NUDGE = {
-  Anschlagdichtung: [0, 0, 0.0008],        // bündig auf der Blendrahmen-Vorderseite
+  Anschlagdichtung: [0, 0, 0.0008],        // bündig auf dem Flügelüberschlag (seit dem Modell vom 13.09. am Flügel montiert)
   Schliessblech_rechts: [-0.0008, 0, 0],   // bündig auf der Falzfläche des Blendrahmens
   Schliessblech_oben: [0, -0.0008, 0],
   Schliessblech_unten: [0, 0.0008, 0],
@@ -951,8 +971,14 @@ export class WindowViewer {
     }
     scene.add(root);
 
-    // Maße aus dem Modell ableiten (Fenster + Wand), nicht hart kodieren.
-    this.box = new THREE.Box3().setFromObject(fenster);
+    // Maße aus dem Modell ableiten (Fenster + Wand), nicht hart kodieren. Die Fenster-Box
+    // umfasst nur die Baugruppe, kein Zubehör am Bau (STATIC_PARTS).
+    // expandByObject rechnet die Weltmatrix nur des Teils selbst neu, die des Elternknotens
+    // "Fenster" (steht 1,6 m hoch) muss vorher stimmen.
+    fenster.updateWorldMatrix(true, false);
+    this.box = new THREE.Box3();
+    for (const [name, obj] of this.parts) if (!STATIC_PARTS.has(name)) this.box.expandByObject(obj);
+    for (const { obj } of this.attached) this.box.expandByObject(obj);
     this.box.getCenter(this.homeTarget);
     this.pivot.copy(this.homeTarget);
     const size = this.box.getSize(new THREE.Vector3());
@@ -1041,7 +1067,8 @@ export class WindowViewer {
     // Bounding-Box der Explosionsansicht (alle Teile an ihrer Endposition), für das
     // Kamera-Framing. Ihr Zentrum ist in der Explosion auch der Drehpunkt der Kamera.
     this.explodedBox = this.box.clone();
-    for (const obj of this.parts.values()) {
+    for (const [name, obj] of this.parts) {
+      if (STATIC_PARTS.has(name)) continue;
       const off = obj.userData.explodeOffset;
       const pb = obj.userData.partBox.clone();
       pb.translate(new THREE.Vector3(off[0], off[1], off[2] + this.explodeLift));
@@ -2177,6 +2204,11 @@ export class WindowViewer {
     const placeObj = (name, obj, role) => {
       const base = obj.userData.basePosition;
       if (!base) return;
+      if (STATIC_PARTS.has(name)) {
+        obj.position.copy(base);
+        obj.quaternion.copy(obj.userData.baseQuaternion || IDENTITY_Q);
+        return;
+      }
       const off = obj.userData.explodeOffset || [0, 0, 0];
       const f = this.partFactor.get(name) ?? 0;
       obj.position.set(base.x + off[0] * f, base.y + off[1] * f, base.z + lift + off[2] * f);
