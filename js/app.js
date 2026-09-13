@@ -92,7 +92,11 @@ buildPartsList(PART_ORDER
 function setLoadingState(state, err) {
   els.loading.hidden = false;
   els.loading.classList.toggle('is-error', state === 'error');
-  if (state === 'error') {
+  if (state === 'lost') {
+    els.loadingText.textContent =
+      'Die 3D-Grafik wurde vom Gerät unterbrochen, zum Beispiel weil die Seite im Hintergrund war. '
+      + 'Sie wird wiederhergestellt, sobald das Gerät sie wieder freigibt. Kommt das Bild nicht zurück: Seite neu laden.';
+  } else if (state === 'error') {
     const msg = err && err.message ? ` (${err.message})` : '';
     els.loadingText.textContent =
       `Das 3D-Modell konnte nicht geladen werden${msg}. Prüfen Sie, ob fenster.glb neben index.html liegt `
@@ -112,6 +116,8 @@ function initViewer() {
     onSelect: handleSelect,
     onAnchor: handleAnchor,
     onHover: handleHover,
+    onContextLost: handleContextLost,
+    onContextRestored: handleContextRestored,
   });
   if (DEBUG) {
     window.fensterViewer = viewer;   // Debug-Zugriff: index.html?debug
@@ -135,6 +141,24 @@ function initViewer() {
       throw err;
     });
   return viewerInit;
+}
+
+// WebGL-Sitzung weg (Handy im Hintergrund, Speicherdruck): Hinweis statt schwarzem Bild,
+// Knöpfe sperren, Auswahl schließen. Der Viewer erholt sich selbst, sobald die Sitzung zurück ist.
+function handleContextLost() {
+  setLoadingState('lost');
+  sperreToolbar(true);
+  if (viewer) viewer.select(null);
+}
+
+function handleContextRestored() {
+  els.loading.hidden = true;
+  sperreToolbar(false);
+  syncToolbar();
+}
+
+function sperreToolbar(an) {
+  for (const btn of [els.explodeBtn, els.openBtn, els.tiltBtn, els.outsideBtn, els.resetBtn]) btn.disabled = an;
 }
 
 function handleSelect(info) {

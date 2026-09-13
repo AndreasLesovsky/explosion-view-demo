@@ -610,13 +610,18 @@ export class WindowViewer {
    * @param {(info: object|null) => void} [o.onSelect]
    * @param {(name: string|null) => void} [o.onHover]
    * @param {(a: {x:number,y:number,visible:boolean}) => void} [o.onAnchor]
+   * @param {() => void} [o.onContextLost]      WebGL-Sitzung weg: Bild bleibt stehen, bis sie zurück ist
+   * @param {() => void} [o.onContextRestored]  Sitzung zurück, Viewer hat sich selbst erholt
    */
-  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {} }) {
+  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {}, onContextLost = () => {}, onContextRestored = () => {} }) {
     this.canvas = canvas;
     this.stage = stage;
     this.onSelect = onSelect;
     this.onHover = onHover;
     this.onAnchor = onAnchor;
+    this.onContextLost = onContextLost;
+    this.onContextRestored = onContextRestored;
+    this.kontextVerloren = false;
 
     this.parts = new Map();       // name -> Object3D (Kinder von "Fenster")
     this.partFactor = new Map();  // name -> Spreizung 0 (montiert) … 1 (auseinander)
@@ -803,14 +808,10 @@ export class WindowViewer {
     this.scene = scene;
 
     // Umgebungslicht: nötig, damit der metallische Griff nicht schwarz bleibt.
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const room = new RoomEnvironment();
-    scene.environment = pmrem.fromScene(room, 0.04).texture;
+    this.erneuereUmgebung();
     // Neutral und hell, aber unterhalb der Sättigung: sonst werden weiße Profile
     // und helle Wand vom Tonemapping auf dieselbe Helligkeit gedrückt.
     scene.environmentIntensity = 0.7;
-    room.dispose();
-    pmrem.dispose();
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
     this.camera = camera;
@@ -1236,6 +1237,23 @@ export class WindowViewer {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(stage);
     window.addEventListener('resize', () => this.resize(), { signal: this.abort.signal });
+    // WebGL-Kontextverlust: der Browser kündigt die GPU-Sitzung jederzeit einseitig (Tab im
+    // Hintergrund am Handy, Speicherdruck, Treiber-Reset). Ohne Behandlung bleibt der Canvas
+    // danach schwarz, während die Oberfläche weiterläuft. preventDefault meldet, dass wir die
+    // Sitzung zurückhaben wollen; three registriert seinen eigenen Handler vor diesem und hat
+    // beim Wiederherstellen den Renderer schon neu aufgesetzt, wir ergänzen nur, was er nicht
+    // kennt (erholeKontext).
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.kontextVerloren = true;
+      this.pause();
+      this.onContextLost();
+    }, { signal: this.abort.signal });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.kontextVerloren = false;
+      this.erholeKontext();
+      this.onContextRestored();
+    }, { signal: this.abort.signal });
     this.resize(true);
 
     this.bindPointer();
@@ -1263,6 +1281,30 @@ export class WindowViewer {
     composer.render();
     this.ready = true;
     return this;
+  }
+
+  // Nach webglcontextrestored. Geometrie, Texturen und Programme lädt three beim nächsten Bild
+  // selbst nach, die Renderziele der Pässe legt es beim nächsten Durchgang neu an. Was fehlt,
+  // ist alles, was wir auf der GPU BERECHNET hatten: die Umgebungsbeleuchtung (PMREM aus dem
+  // RoomEnvironment) und die Schattenkarte, die nur auf Anforderung gerendert wird.
+  erholeKontext() {
+    if (!this.renderer || !this.scene) return;
+    this.erneuereUmgebung();
+    this.renderer.shadowMap.needsUpdate = true;
+    this.needsRender = true;
+    this.start();
+  }
+
+  // Umgebungsbeleuchtung (PMREM aus dem RoomEnvironment) berechnen: beim Aufbau in init und
+  // nach Kontextverlust, weil die alte Textur mit der GPU-Sitzung verloren ist.
+  erneuereUmgebung() {
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    const alt = this.scene.environment;
+    this.scene.environment = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
+    pmrem.dispose();
+    if (alt) alt.dispose();
   }
 
   dispose() {
