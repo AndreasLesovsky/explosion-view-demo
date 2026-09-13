@@ -1130,15 +1130,25 @@ export class WindowViewer {
     for (const o of this.parts.values()) sammle(o);
     for (const { obj } of this.attached) sammle(obj);
 
-    // Draußen: weicher Himmel knapp vor der Außenwand, nur durch das Fenster sichtbar.
-    // Bewusst außerhalb der Wanddicke: Läge er in der Laibung, sähe die (ihn
-    // ausblendende) Ambient Occlusion dahinter die Laibungsflächen und würde den
-    // Himmel an den Öffnungskanten abdunkeln. Größe so, dass auch schräge Blicke
-    // durch die Öffnung nur Himmel treffen, aber die Wand ihn komplett verdeckt.
-    const reach = (wandSize.z + 0.05) * 2.3;   // seitlicher Blickversatz bei max. Azimut
-    const skyW = Math.min(wandSize.x - 0.1, size.x + 2 * reach);
-    const skyTop = wandBox.max.y - 0.02;
-    const skyBottom = Math.max(wandBox.min.y + 0.02, this.box.min.y - reach * 0.5);
+    // Draußen: weicher Himmel als Fläche hinter der Außenwand, nur durch das Fenster sichtbar —
+    // die Maske in makeSkyBackdrop zeichnet ihn allein dort, wo der Sehstrahl die Öffnung
+    // durchquert, nie neben oder über der Wandscheibe, und von außen gar nicht. Bewusst
+    // außerhalb der Wanddicke: Läge er in der Laibung, sähe die (ihn ausblendende) Ambient
+    // Occlusion dahinter die Laibungsflächen und würde den Himmel an den Öffnungskanten
+    // abdunkeln. Und hinter ALLEM, was nach außen ragt: die Außenfensterbank steht 4,5 cm
+    // weiter draußen als die Wand, stand die Fläche dazwischen, war die Bank abgeschnitten.
+    // Die Fläche darf beliebig groß sein (die Maske begrenzt sie), muss aber groß genug sein,
+    // dass jeder Blick durch die Öffnung sie trifft — bei größerer Tiefe also breiter. Der
+    // Farbverlauf bleibt an der Wandhöhe verankert, egal wie hoch die Fläche wird.
+    let aussenMinZ = wandBox.min.z;
+    for (const o of this.parts.values()) aussenMinZ = Math.min(aussenMinZ, o.userData.partBox.min.z);
+    const sill = root.getObjectByName('Fensterbank');
+    if (sill) aussenMinZ = Math.min(aussenMinZ, new THREE.Box3().setFromObject(sill).min.z);
+    const skyZ = aussenMinZ - 0.02;
+    const reach = (this.wallFaceZ - skyZ) * 2.3;   // seitlicher Blickversatz bei max. Azimut (rund 66 Grad)
+    const skyW = size.x + 2 * reach;
+    const skyTop = Math.max(wandBox.max.y - 0.02, this.box.max.y + reach * 0.5);
+    const skyBottom = Math.min(wandBox.min.y + 0.02, this.box.min.y - reach * 0.5);
     const skyCenter = new THREE.Vector3(this.homeTarget.x, (skyTop + skyBottom) / 2, 0);
     // Öffnungsrechteck in der Innenwand-Ebene: der Himmel wird nur dort gezeichnet, wo
     // der Sehstrahl durch die Öffnung geht (siehe makeSkyBackdrop), nie über die
@@ -1149,9 +1159,8 @@ export class WindowViewer {
       faceZ: this.wallFaceZ,
     };
     // Knapp hinter Außenwand und äußerer Fensterbank, damit die Bank nicht in der Fläche steckt.
-    const sill = root.getObjectByName('Fensterbank');
-    const sillMinZ = sill ? new THREE.Box3().setFromObject(sill).min.z : wandBox.min.z;
-    const sky = makeSkyBackdrop(skyCenter, new THREE.Vector3(skyW, skyTop - skyBottom, 0), Math.min(wandBox.min.z, sillMinZ) - 0.02, opening);
+    const sky = makeSkyBackdrop(skyCenter, new THREE.Vector3(skyW, skyTop - skyBottom, 0), skyZ, opening,
+      { bottom: wandBox.min.y, top: wandBox.max.y });
     scene.add(sky);
     // Maß der Wandöffnung aus der Wandgeometrie (Laibungskanten), nicht aus dem Fenster:
     // der Rahmen steckt ein paar Millimeter in der Laibung.
@@ -3047,7 +3056,9 @@ function deriveHandlePivot(handle, fenster) {
 
 // `opening`: { min, max: Vector2 in der Innenwand-Ebene, faceZ }. Der Himmel wird nur
 // dort gezeichnet, wo der Sehstrahl die Innenwand-Ebene innerhalb der Öffnung schneidet.
-function makeSkyBackdrop(center, size, z, opening) {
+// `verlauf`: { bottom, top } — Höhenbereich (Welt-y), über den der Farbverlauf läuft; ohne
+// Angabe ist es die Fläche selbst. Darüber und darunter setzt sich die Randfarbe fort.
+function makeSkyBackdrop(center, size, z, opening, verlauf = null) {
   const c = document.createElement('canvas');
   c.width = 4;
   c.height = 256;
@@ -3060,6 +3071,13 @@ function makeSkyBackdrop(center, size, z, opening) {
   ctx.fillRect(0, 0, c.width, c.height);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  if (verlauf) {
+    // Die Fläche kann höher sein als der Verlaufsbereich: Textur so skalieren und
+    // verschieben, dass 0…1 genau auf [bottom, top] liegt (ClampToEdge ist Standard).
+    const spanne = Math.max(verlauf.top - verlauf.bottom, 1e-3);
+    tex.repeat.y = size.y / spanne;
+    tex.offset.y = (center.y - size.y / 2 - verlauf.bottom) / spanne;
+  }
   const material = new THREE.MeshBasicMaterial({ map: tex });
   // Nur durch die Öffnung sichtbar: Fragmente, deren Sehstrahl (Kamera zu Fragment) die
   // Innenwand-Ebene außerhalb des Öffnungsrechtecks schneidet, werden verworfen. So darf
