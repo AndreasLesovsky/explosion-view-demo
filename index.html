@@ -36,11 +36,14 @@
   <link rel="stylesheet" href="fonts/inter/inter.css" />
   <link rel="stylesheet" href="css/style.css" />
 
+  <!-- three.js liegt lokal unter vendor/three (kopiert per `npm run vendor`, siehe
+       scripts/vendor-three.mjs). Vorher kam es von jsdelivr: jede Besucher-IP ging an einen
+       Dritten, dasselbe Argument wie bei den Schriften. -->
   <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+          "three": "./vendor/three/build/three.module.min.js",
+          "three/addons/": "./vendor/three/examples/jsm/"
         }
       }
     </script>
