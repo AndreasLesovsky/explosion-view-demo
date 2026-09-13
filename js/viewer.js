@@ -340,6 +340,11 @@ const COUPLING_START = 0.4;
 // erreicht softLimit 95 % der Grenze. Ließe man ihn weiterlaufen, müsste man beim Zurückdrehen
 // erst den Überhang abtragen, bevor sich der Blickpunkt wieder bewegt — eine tote Zone.
 const SWIVEL_RAW_MAX = 1.06;
+// Über diesen unteren Bereich der Kopplungsstärke wird der wirksame Schwenk weich auf null
+// gezogen. Ohne die Hülle spränge der Blickpunkt, wenn der Abstand ohne Zoom über die
+// Kopplungsschwelle wächst (Explosion klappt aus 1,5 m ein: Drehpunkt weicht 0,7 m zurück,
+// die Kamera bleibt, u wird null und der Rohwert würde in einem Frame gelöscht).
+const SWIVEL_FADE_U = 0.2;
 // Neigung nach oben und nach unten gleich weit (rad, gemessen von +y). Die Boden- und
 // Wandschranke in applyNearLimits() engt das nah am Fenster zusätzlich ein.
 const POLAR_TILT = 2.3;
@@ -672,7 +677,7 @@ export class WindowViewer {
 
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
-    // Home-Blickrichtung der aktuellen Seite (innen oder außen); homePolar/homeAzimuth folgen ihr.
+    // Home-Blickrichtung der aktuellen Seite (innen oder außen).
     this.homeDir = new THREE.Vector3(-0.42, 0.2, 1).normalize();
     this.insideDir = this.homeDir.clone();
     // Außenansicht: gespiegelt, Kamera vor der Außenwand, gleiche Dreiviertel-Komposition.
@@ -730,8 +735,6 @@ export class WindowViewer {
     this.wallOuterZ = -0.12;      // Außenwand-Ebene, in der Außenansicht bleibt die Kamera davor
     this.wallHalfX = 1.7;         // halbe Wandbreite, die Fahrt zur anderen Seite geht um diese Kante
     this.floorY = 0;              // Bodenebene (Wandfuß), Kamera bleibt darüber
-    this.homePolar = Math.acos(this.homeDir.y);
-    this.homeAzimuth = Math.atan2(this.homeDir.x, this.homeDir.z);
     this._panWant = new THREE.Vector3();
     this._pivotDelta = new THREE.Vector3();
     // Aufsummierter Schwenk in Metern relativ zum Drehpunkt (x seitlich, y Höhe), unbegrenzt
@@ -741,7 +744,6 @@ export class WindowViewer {
     // applyPanCoupling, wie weit der Nutzer seither gedreht und gezoomt hat.
     this._pose = { theta: 0, phi: 0, dist: 0 };
     this._poseGemerkt = false;
-    this._dirFrom = new THREE.Vector3();
     this._dirTmp = new THREE.Vector3();
     this._dirTmp2 = new THREE.Vector3();
     this.explodeLift = 0.35;      // wird aus Wanddicke + Rahmenlage abgeleitet
@@ -1329,8 +1331,8 @@ export class WindowViewer {
     return { dir: this.homeDir, dist: this.homeDist };
   }
 
-  // Kamera ohne Fahrt auf die Ruhepose setzen (Startansicht, Resize, Seitenwechsel), am
-  // Gleichgewichtspunkt der Kopplung, damit der nächste Tick nichts nachschiebt.
+  // Kamera ohne Fahrt auf die Ruhepose setzen (Startansicht, Resize, Seitenwechsel), ohne
+  // Schwenk (Rohwert genullt), damit der nächste Tick nichts nachschiebt.
   placeAtStandardPose() {
     const pose = this.standardPose();
     this.swivelRaw.set(0, 0, 0);
@@ -1631,7 +1633,9 @@ export class WindowViewer {
       // am Mindestabstand). Im Fokus ist die Kopplung aus (panScale 0), also u = 0 und volle
       // Geschwindigkeit: die Bremse gilt dem Schwenk, nicht der Nähe.
       const u = this.naehe(dist0) * this.panScale;
-      const G = this.panCoupling.xFrame;
+      // Ein Gewinn für beide Achsen (OrbitControls kennt nur eine Drehgeschwindigkeit): das
+      // Mittel aus seitlich und senkrecht, bei hohen Fenstern liegen sie auseinander.
+      const G = (this.panCoupling.xFrame + Math.max(this.panCoupling.yFrame, this.panCoupling.yFrameUp)) / 2;
       const dMitte = this.homeDist - (COUPLING_START + 1) / 2 * (this.homeDist - MIN_DIST);
       const wegFern = ROTATE_SPEED;
       const wegMitte = ROTATE_SPEED_MID * (dMitte + G * 0.5) / dMitte;
@@ -1672,12 +1676,14 @@ export class WindowViewer {
   }
 
   // Blickpunkt pro Frame nachführen: Blickpunkt = Drehpunkt + Schwenk. Der Schwenk entsteht
-  // NUR aus Drehung: die Winkeländerung, die der Nutzer in diesem Frame gemacht hat (Pose vor
-  // und nach controls.update, gegen denselben Blickpunkt gemessen), wird mit Gewinn und
-  // Kopplungsstärke in Meter übersetzt und aufsummiert. Zoomen schwenkt nie: hinein ändert
-  // den Schwenk nicht, hinaus blendet ihn im Verhältnis der Kopplungsstärke aus, auf Home-
-  // Distanz ist der Blickpunkt die Fenstermitte. Kamera und Blickpunkt werden immer um
-  // DENSELBEN Vektor verschoben, die Orbit-Geometrie bleibt unverändert.
+  // NUR aus Drehung: die Winkeländerung, die der Nutzer seit dem letzten Frame gemacht hat
+  // (gegen die gemerkte Pose, siehe merkePose), wird mit Gewinn und Kopplungsstärke in Meter
+  // übersetzt und aufsummiert. Der Blickpunkt wandert dabei in Drehrichtung der Kamera — das
+  // ist die Richtung, in die der Finger das Fenster zieht; welche Seite der Kamera das ist,
+  // spielt keine Rolle. Zoomen schwenkt nie: hinein ändert den Schwenk nicht, hinaus blendet
+  // ihn im Verhältnis der Kopplungsstärke aus, auf Home-Distanz ist der Blickpunkt die
+  // Fenstermitte. Kamera und Blickpunkt werden immer um DENSELBEN Vektor verschoben, die
+  // Orbit-Geometrie bleibt unverändert.
   //
   // Wandert der Drehpunkt (Explosion, Drehstellung, Fokus auf ein bewegtes Teil), folgt ihm
   // der Blickpunkt, der Schwenk bleibt relativ zu ihm erhalten. Die Kamera fährt nur mit, wenn
@@ -1712,20 +1718,25 @@ export class WindowViewer {
     const u = this.naehe(dist) * this.panScale;
     if (this._poseGemerkt && u > 0) {
       const p0 = this._pose;
-      const u0 = this.naehe(p0.dist) * this.panScale;
+      // Hebt ein Tween den Mindestabstand an (Explosion), klemmt controls.update den Radius
+      // nach außen — das ist kein Zoom des Nutzers und darf nicht ausblenden.
+      const dist0 = Math.max(p0.dist, this.controls.minDistance);
+      const u0 = this.naehe(dist0) * this.panScale;
       const theta1 = Math.atan2(off.x, off.z);
       const phi1 = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
-      // Seite zur Kamera hin, innen wie außen: asin(sin) faltet den Azimut auf ±90 Grad, so
-      // wandert der Blickpunkt auf beiden Seiten der Wand zur Kamera hin.
-      const dSeite = Math.asin(clamp(Math.sin(theta1), -1, 1)) - Math.asin(clamp(Math.sin(p0.theta), -1, 1));
+      // Kürzeste Winkeldifferenz (stetig über ±180 Grad). Außen ist die Kamera bei −z, dort
+      // läuft der Azimut andersherum, deshalb gespiegelt: +x bleibt +x. Eine Faltung mit
+      // asin(sin) hätte bei 90 Grad die Richtung umgekehrt — erreichbar bei offenem Flügel.
+      const dTheta = Math.atan2(Math.sin(theta1 - p0.theta), Math.cos(theta1 - p0.theta));
+      const dSeite = this.outside ? -dTheta : dTheta;
       const dHoehe = p0.phi - phi1;
       raw.x = clamp(raw.x + pc.xFrame * u * dSeite, -SWIVEL_RAW_MAX * pc.xMax, SWIVEL_RAW_MAX * pc.xMax);
-      const gY = raw.y + dHoehe >= 0 ? pc.yFrameUp : pc.yFrame;
+      const gY = raw.y >= 0 ? pc.yFrameUp : pc.yFrame;
       raw.y = clamp(raw.y + gY * u * dHoehe, -SWIVEL_RAW_MAX * pc.yDown, SWIVEL_RAW_MAX * pc.yUp);
       // Zoom hinaus (die Kamera hat sich vom Blickpunkt entfernt) blendet den Schwenk im
       // Verhältnis der Kopplungsstärke aus. Nur der Zoom: ein zurückweichender Drehpunkt wird
       // erst weiter unten angewendet und steckt schon in der gemerkten Pose.
-      if (dist > p0.dist + 1e-9 && u < u0) raw.multiplyScalar(u / u0);
+      if (dist > dist0 + 1e-9 && u < u0) raw.multiplyScalar(u / u0);
     }
     if (u <= 0) raw.set(0, 0, 0);
 
@@ -1743,9 +1754,11 @@ export class WindowViewer {
       moved = true;
     }
 
-    // Blickpunkt = Drehpunkt + weich begrenzter Schwenk; Kamera um dieselbe Differenz mit.
+    // Blickpunkt = Drehpunkt + weich begrenzter Schwenk, bei schwacher Kopplung weich auf null
+    // gezogen (SWIVEL_FADE_U); Kamera um dieselbe Differenz mit.
+    const huelle = smoothstep(0, SWIVEL_FADE_U, u);
     const want = this._panWant
-      .set(softLimit(raw.x, -pc.xMax, pc.xMax), softLimit(raw.y, -pc.yDown, pc.yUp), 0)
+      .set(softLimit(raw.x, -pc.xMax, pc.xMax) * huelle, softLimit(raw.y, -pc.yDown, pc.yUp) * huelle, 0)
       .add(this.baseTarget());
     const delta = want.sub(t);
     if (delta.lengthSq() > 1e-10) {
@@ -2038,10 +2051,15 @@ export class WindowViewer {
         bisher = weg * e;
         const richtung = this._dirTmp.subVectors(cam, this.controls.target).normalize();
         cam.addScaledVector(richtung, schritt);
-        this.constrainPosition(cam, this.controls.target);
-        // Der Rückzug ist kein Zoom des Nutzers: gemerkte Pose nachziehen, sonst blendete
-        // applyPanCoupling den Schwenk um den Rückzugsweg aus.
-        if (this._poseGemerkt) this.merkePose();
+        const geklemmt = this.constrainPosition(cam, this.controls.target);
+        // Der Rückzug ist kein Zoom des Nutzers: gemerkten Abstand nachziehen, sonst blendete
+        // applyPanCoupling den Schwenk um den Rückzugsweg aus. Nur den Abstand — die Winkel
+        // bleiben, damit eine gleichzeitige Drehung des Nutzers weiter gezählt wird; hat die
+        // Raum-Schranke die Winkel verändert, die ganze Pose.
+        if (this._poseGemerkt) {
+          if (geklemmt) this.merkePose();
+          else this._pose.dist = cam.distanceTo(this.controls.target);
+        }
       },
     });
     return weg;
@@ -2075,16 +2093,27 @@ export class WindowViewer {
 
   // Laufende Kamera-/Drehpunkt-Tweens (Fokus, Reset) abbrechen, ohne die Controls gesperrt
   // zu lassen. Wer danach eine neue Fahrt anlegt, sperrt sie selbst wieder.
-  cancelCameraTweens() {
-    this.killTweens('camera');
-    this.killTweens('pivot');
-    this.killTweens('retreat');
-    this.controls.enabled = true;
+  // `fokusSchonen`: eine laufende Fokusfahrt weiterlaufen lassen. Ihr Abschluss setzt
+  // Drehpunkt, Blickpunkt und Kopplung konsistent (panScale 0, settleControls); abgebrochen
+  // bliebe panScale auf halbem Weg stehen, und der Blickpunkt spränge im nächsten Frame um
+  // den Restweg plus den alten Schwenk. Öffnen und Explosion warten deshalb auf sie
+  // (restFokusFahrt); Reset und Seitenwechsel dürfen sie töten, sie fahren selbst zu Ende.
+  cancelCameraTweens(fokusSchonen = false) {
+    this.tweens = this.tweens.filter((t) =>
+      (t.tag !== 'camera' || (fokusSchonen && t.fokus)) && t.tag !== 'pivot' && t.tag !== 'retreat');
+    this.controls.enabled = !this.hasTween('camera');
+  }
+
+  // Restdauer einer laufenden Fokusfahrt in ms, 0 wenn keine läuft.
+  restFokusFahrt() {
+    const f = this.tweens.find((t) => t.tag === 'camera' && t.fokus);
+    if (!f) return 0;
+    return f.start === null ? f.delay + f.duration : Math.max(0, f.start + f.duration - performance.now());
   }
 
   // Gemeinsame Kamerafahrt für Explosion und Flügel. Startpose erst im ersten Frame lesen
   // (verzögerter Start nach einer anderen Animation). Der Blickpunkt wandert vom aktuellen
-  // (inkl. Schwenk-Versatz) zum gekoppelten Gleichgewichtspunkt der Zielansicht, Richtung
+  // (inkl. Schwenk) zum Drehpunkt der Zielansicht (die Fahrt endet ohne Schwenk), Richtung
   // und Distanz werden dorthin überblendet, so springt weder der erste noch der letzte
   // Frame. `progress(p)` liefert den bereits geglätteten Fortschritt 0 … 1 zur Tween-Zeit p.
   cameraRide({ duration, delay = 0, dirTo, dEnd, progress }) {
@@ -2129,6 +2158,9 @@ export class WindowViewer {
   // Intro: Teile fliegen aus einer Explosionsansicht zusammen, Kamera fährt heran.
   prepareIntro() {
     this.tweens.length = 0;
+    // Restschwung der Controls verwerfen: nach "Neu scannen" mitten im Ausschwingen drehte die
+    // Kamera nach dem Intro sonst noch einige Grad von selbst weiter.
+    if (this.controls) this.discardMomentum();
     this.introPlaying = false;
     this.exploded = false;
     this.userInteracted = false;
@@ -2296,7 +2328,9 @@ export class WindowViewer {
     }
     this.sashMode = mode;
     this.killTweens('sash');
-    this.cancelCameraTweens();
+    // Eine laufende Fokusfahrt zu Ende fahren lassen (siehe cancelCameraTweens).
+    delay = Math.max(delay, this.restFokusFahrt());
+    this.cancelCameraTweens(true);
     const o0 = this.openFactor, t0 = this.tiltFactor, h0 = this.handleAngle;
     const oT = mode === 'open' ? 1 : 0;
     const tT = mode === 'tilt' ? 1 : 0;
@@ -2408,7 +2442,9 @@ export class WindowViewer {
       delay = this.setSash('closed');
     }
     this.killTweens('explode');
-    this.cancelCameraTweens();
+    // Eine laufende Fokusfahrt zu Ende fahren lassen (siehe cancelCameraTweens).
+    delay = Math.max(delay, this.restFokusFahrt());
+    this.cancelCameraTweens(true);
     // Die Explosion gibt es nur in der Innenansicht: von außen erst hinein fahren.
     let switchedSide = false;
     if (on && (this.outside || this.outsideRequested)) {
@@ -2611,12 +2647,10 @@ export class WindowViewer {
   }
 
 
-  // Seite anwenden: Home-Richtung, Kopplungs-Referenzen und Framing umstellen. Bewegt
+  // Seite anwenden: Home-Richtung und Framing umstellen. Bewegt
   // weder Kamera noch Auswahl; das erledigt die aufrufende Fahrt.
   applyViewSide() {
     this.homeDir.copy(this.outside ? this.outsideDir : this.insideDir);
-    this.homePolar = Math.acos(this.homeDir.y);
-    this.homeAzimuth = Math.atan2(this.homeDir.x, this.homeDir.z);
     if (this.box) this.homeDist = this.computeHomeDistance();
   }
 
@@ -2632,6 +2666,31 @@ export class WindowViewer {
     this.focused = null;
     if (this.exploded) this.setExploded(false);
     if (this.sashMode !== 'closed') this.setSash('closed');
+    // Reset-Fahrt nur, wenn keine andere Fahrt läuft. Sie wird VOR dem Drehpunkt-Tween angelegt,
+    // damit sie pro Frame nach ihm ausgewertet wird (die Tween-Liste läuft rückwärts) und den
+    // aktuellen Drehpunkt sieht; andersherum sähe sie den des Vorframes und der letzte Frame
+    // schöbe um den Rest nach. Der Blickpunkt wandert vom aktuellen (inkl. Schwenk) auf den
+    // Drehpunkt, so springt der erste Frame nicht.
+    if (!this.hasTween('camera') && !this.hasTween('view')) {
+      const from = this.camera.position.clone();
+      const look = this.controls.target;
+      const lookFrom = look.clone();
+      // Dauer nach Weg: kleine Korrekturen kurz, weite Fahrten (etwa aus einem Fokus von
+      // 0,75 m) länger und mit Sinus-Verlauf, damit die Winkelgeschwindigkeit moderat bleibt.
+      const dirFrom = from.clone().sub(lookFrom).normalize();
+      const duration = rideDuration(dirFrom, this.homeDir, lookFrom.distanceTo(this.homeTarget), Math.min(from.distanceTo(lookFrom), this.homeDist));
+      this.controls.enabled = false;
+      this.tween({
+        tag: 'camera', duration, ease: easeInOutSine,
+        update: (e) => {
+          look.lerpVectors(lookFrom, this.pivot, e);
+          this.camera.position.lerpVectors(from, this.homePosition(this.homeDist, this.homeDir, this.pivot), e);
+          this.constrainPosition(this.camera.position, look);
+          this.camera.lookAt(look);
+        },
+        complete: () => { this.controls.enabled = true; this.settleControls(); this._pivotArmed = false; },
+      });
+    }
     // Drehpunkt und Kopplung zurück auf die Fenstermitte (löst einen Fokus), unabhängig davon,
     // welche Fahrt die Kamera gerade führt (Explosion, Flügel, Seitenwechsel oder der Reset selbst).
     {
@@ -2646,29 +2705,6 @@ export class WindowViewer {
         complete: () => { this.pivot.copy(this.homeTarget); this.panScale = 1; this._pivotArmed = false; },
       });
     }
-    if (this.hasTween('camera') || this.hasTween('view')) return;
-    const from = this.camera.position.clone();
-    const look = this.controls.target;
-    const lookFrom = look.clone();
-    // Dauer nach Weg: kleine Korrekturen kurz, weite Fahrten (etwa aus einem Fokus von
-    // 0,75 m) länger und mit Sinus-Verlauf, damit die Winkelgeschwindigkeit moderat bleibt.
-    const dirFrom = from.clone().sub(lookFrom).normalize();
-    const duration = rideDuration(dirFrom, this.homeDir, lookFrom.distanceTo(this.homeTarget), Math.min(from.distanceTo(lookFrom), this.homeDist));
-    this.controls.enabled = false;
-    // Kamera-Tween vor dem Drehpunkt-Tween anlegen, damit er pro Frame nach ihm ausgewertet
-    // wird (die Tween-Liste läuft rückwärts) und den aktuellen Drehpunkt sieht. Der
-    // Blickpunkt wandert vom aktuellen (inkl. Schwenk-Versatz) auf den Drehpunkt, so
-    // springt der erste Frame nicht.
-    this.tween({
-      tag: 'camera', duration, ease: easeInOutSine,
-      update: (e) => {
-        look.lerpVectors(lookFrom, this.pivot, e);
-        this.camera.position.lerpVectors(from, this.homePosition(this.homeDist, this.homeDir, this.pivot), e);
-        this.constrainPosition(this.camera.position, look);
-        this.camera.lookAt(look);
-      },
-      complete: () => { this.controls.enabled = true; this.settleControls(); this._pivotArmed = false; },
-    });
   }
 
   // ------------------------------------------------------------------
@@ -2825,7 +2861,7 @@ export class WindowViewer {
     const duration = rideDuration(dirFrom, dirTo, travel, Math.min(dStart, dist));
     const hump = 0.35 * travel;
     this.controls.enabled = false;
-    this.tween({
+    const fahrt = this.tween({
       tag: 'camera', duration, ease: easeInOutSine,
       update: (e) => {
         this.pivot.lerpVectors(pivotFrom, center, e);
@@ -2839,6 +2875,7 @@ export class WindowViewer {
       },
       complete: () => { this.panScale = 0; this.controls.enabled = true; this.settleControls(); this.userInteracted = true; this._pivotArmed = false; },
     });
+    fahrt.fokus = true;   // Öffnen und Explosion warten auf diese Fahrt statt sie abzubrechen
   }
 
   focusByName(name) {
