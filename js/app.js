@@ -125,7 +125,8 @@ function initViewer() {
       buildPartsList(viewer.getParts());
     })
     .catch((err) => {
-      console.error('[fenster] Modell konnte nicht geladen werden:', err);
+      // Die Oberfläche zeigt den Fehler an (setLoadingState); die Konsole nur beim Entwickeln.
+      if (DEBUG) console.error('[fenster] Modell konnte nicht geladen werden:', err);
       setLoadingState('error', err);
       // Aufräumen, damit der nächste Scan komplett neu starten kann.
       try { viewer.dispose(); } catch (_) { /* ignorieren */ }
