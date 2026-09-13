@@ -1,93 +1,42 @@
 <!doctype html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title>Explosion View Demo – Ersatzteile im 3D-Modell finden</title>
-    <meta
-      name="description"
-      content="Demo: QR-Code am Fenster scannen, 3D-Modell ansehen, Bauteil antippen und Ersatzteil im Shop finden."
-    />
 
-    <!-- Die drei absoluten Adressen unten (canonical, og:url, og:image) müssen auf die
-       Domain zeigen, unter der die Seite wirklich erreichbar ist. Relative Pfade wertet
-       dort kein Vorschaudienst aus: WhatsApp, Slack, Teams und LinkedIn holen die Seite
-       selbst ab und kennen deinen Kontext nicht. Zieht die Demo um, sind das die drei
-       Stellen, die mitwandern. -->
-    <link rel="canonical" href="https://demo.andreas-web.dev/" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Explosion View Demo – Ersatzteile im 3D-Modell finden</title>
+  <meta name="description"
+    content="Demo: QR-Code am Fenster scannen, 3D-Modell ansehen, Bauteil antippen und Ersatzteil im Shop finden." />
 
-    <!-- Eine Demo hat im Suchindex nichts verloren. Zeile löschen, wenn sie gefunden werden soll. -->
-    <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://demo.andreas-web.dev/" />
 
-    <!-- Symbole. Relative Pfade, damit es lokal unter /Projekte_2026/... genauso läuft wie
-       später im Wurzelverzeichnis der Subdomain. -->
-    <link rel="icon" href="favicon.ico" sizes="32x32" />
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-    <meta name="theme-color" content="#CC0000" />
+  <link rel="icon" href="favicon.ico" sizes="32x32" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#CC0000" />
 
-    <!-- Open Graph: die Vorschaukarte, die entsteht, wenn jemand den Link verschickt.
-       Ohne diese Zeilen zeigen Messenger nur die nackte URL. -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Explosion View" />
-    <meta property="og:locale" content="de_AT" />
-    <meta property="og:url" content="https://demo.andreas-web.dev/" />
-    <meta property="og:title" content="Explosion View Demo" />
-    <meta
-      property="og:description"
-      content="QR-Code am Fenster scannen, 3D-Modell ansehen, Bauteil antippen und Ersatzteil finden."
-    />
-    <meta
-      property="og:image"
-      content="https://demo.andreas-web.dev/og-image.jpg"
-    />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta
-      property="og:image:alt"
-      content="Explosionsansicht eines Fensters im 3D-Viewer"
-    />
-    <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Explosion View" />
+  <meta property="og:locale" content="de_AT" />
+  <meta property="og:url" content="https://demo.andreas-web.dev/" />
+  <meta property="og:title" content="Explosion View Demo" />
+  <meta property="og:description"
+    content="QR-Code am Fenster scannen, 3D-Modell ansehen, Bauteil antippen und Ersatzteil finden." />
+  <meta property="og:image" content="https://demo.andreas-web.dev/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Explosionsansicht eines Fensters im 3D-Viewer" />
+  <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Schriften liegen lokal. Vorher kamen sie von fonts.googleapis.com, wobei jeder
-       Besucher seine IP an Google uebergeben hat — bei einer oeffentlich erreichbaren
-       Seite ist das der Punkt, an dem sich das LG Muenchen 2022 eingemischt hat. -->
+  <link rel="preload" href="fonts/roboto/roboto-v51-latin-regular.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/roboto/roboto-v51-latin-900.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/inter/inter-v20-latin-600.woff2" as="font" type="font/woff2" crossorigin />
 
-    <!-- Vorgeladen wird nur, was sofort und gross zu sehen ist. Eine Schrift wird sonst
-       erst entdeckt, wenn die CSS geladen UND ausgewertet ist und ein passendes Element
-       im Layout auftaucht — zwei Runden tief. crossorigin ist Pflicht, auch bei eigenen
-       Dateien: Schriften werden immer im CORS-Modus geholt, sonst laedt der Browser sie
-       ein zweites Mal. -->
-    <link
-      rel="preload"
-      href="fonts/roboto/roboto-v51-latin-regular.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="fonts/roboto/roboto-v51-latin-900.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="fonts/inter/inter-v20-latin-600.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+  <link rel="stylesheet" href="fonts/roboto/roboto.css" />
+  <link rel="stylesheet" href="fonts/inter/inter.css" />
+  <link rel="stylesheet" href="css/style.css" />
 
-    <link rel="stylesheet" href="fonts/roboto/roboto.css" />
-    <link rel="stylesheet" href="fonts/inter/inter.css" />
-    <link rel="stylesheet" href="css/style.css" />
-
-    <script type="importmap">
+  <script type="importmap">
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
@@ -95,376 +44,265 @@
         }
       }
     </script>
-  </head>
+</head>
 
-  <body>
-    <header class="header">
-      <a
-        class="logo"
-        href="#"
-        id="logo"
-        aria-label="Explosion View Demo – Startseite"
-        >Explosion&nbsp;View<span class="logo__tag">Demo</span></a
-      >
-      <nav class="nav" aria-label="Hauptnavigation">
-        <a href="#">Shop</a>
-        <button
-          class="btn btn--ghost btn--small"
-          id="btn-rescan"
-          type="button"
-          hidden
-        >
-          Neu scannen
+<body>
+  <header class="header">
+    <a class="logo" href="#" id="logo" aria-label="Explosion View Demo – Startseite">Explosion&nbsp;View<span
+        class="logo__tag">Demo</span></a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="#">Shop</a>
+      <button class="btn btn--ghost btn--small" id="btn-rescan" type="button" hidden>
+        Neu scannen
+      </button>
+    </nav>
+  </header>
+
+  <main class="main">
+    <!-- Screen 1: Hero -->
+    <section class="screen screen--hero is-active" id="screen-hero" aria-labelledby="hero-title">
+      <div class="hero">
+        <p class="eyebrow">Ersatzteile für Ihr Fenster</p>
+        <h1 id="hero-title">
+          Fenster scannen.<br />Bauteil finden.<br />Direkt bestellen.
+        </h1>
+        <p class="lead">
+          Scannen Sie den QR-Code auf Ihrem Fenster. Sie erhalten ein
+          interaktives 3D-Modell, in dem Sie jedes Bauteil antippen und
+          passende Ersatzteile im Shop finden.
+        </p>
+        <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.2" />
+            <rect x="14" y="3" width="7" height="7" rx="1.2" />
+            <rect x="3" y="14" width="7" height="7" rx="1.2" />
+            <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
+          </svg>
+          <span>QR-Code scannen</span>
         </button>
-      </nav>
-    </header>
+        <p class="hint">
+          Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet.
+        </p>
+      </div>
 
-    <main class="main">
-      <!-- Screen 1: Hero -->
-      <section
-        class="screen screen--hero is-active"
-        id="screen-hero"
-        aria-labelledby="hero-title"
-      >
-        <div class="hero">
-          <p class="eyebrow">Ersatzteile für Ihr Fenster</p>
-          <h1 id="hero-title">
-            Fenster scannen.<br />Bauteil finden.<br />Direkt bestellen.
-          </h1>
-          <p class="lead">
-            Scannen Sie den QR-Code auf Ihrem Fenster. Sie erhalten ein
-            interaktives 3D-Modell, in dem Sie jedes Bauteil antippen und
-            passende Ersatzteile im Shop finden.
+      <ol class="steps" aria-label="So funktioniert es">
+        <li>
+          <span class="steps__num" aria-hidden="true">1</span>
+          <h2>Scannen</h2>
+          <p>QR-Code am Fensterrahmen mit dem Smartphone erfassen.</p>
+        </li>
+        <li>
+          <span class="steps__num" aria-hidden="true">2</span>
+          <h2>Modell ansehen</h2>
+          <p>
+            Ihr Fenster erscheint als 3D-Modell, frei drehbar und zoombar.
           </p>
-          <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
-            <svg
-              viewBox="0 0 24 24"
-              width="26"
-              height="26"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="3" width="7" height="7" rx="1.2" />
-              <rect x="14" y="3" width="7" height="7" rx="1.2" />
-              <rect x="3" y="14" width="7" height="7" rx="1.2" />
-              <path
-                d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"
-                fill="currentColor"
-                stroke="none"
-              />
-            </svg>
-            <span>QR-Code scannen</span>
-          </button>
-          <p class="hint">
-            Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet.
+        </li>
+        <li>
+          <span class="steps__num" aria-hidden="true">3</span>
+          <h2>Teil auswählen</h2>
+          <p>
+            Bauteil antippen, Infos lesen und passende Produkte im Shop
+            öffnen.
           </p>
-        </div>
+        </li>
+      </ol>
+    </section>
 
-        <ol class="steps" aria-label="So funktioniert es">
-          <li>
-            <span class="steps__num" aria-hidden="true">1</span>
-            <h2>Scannen</h2>
-            <p>QR-Code am Fensterrahmen mit dem Smartphone erfassen.</p>
-          </li>
-          <li>
-            <span class="steps__num" aria-hidden="true">2</span>
-            <h2>Modell ansehen</h2>
-            <p>
-              Ihr Fenster erscheint als 3D-Modell, frei drehbar und zoombar.
-            </p>
-          </li>
-          <li>
-            <span class="steps__num" aria-hidden="true">3</span>
-            <h2>Teil auswählen</h2>
-            <p>
-              Bauteil antippen, Infos lesen und passende Produkte im Shop
-              öffnen.
-            </p>
-          </li>
-        </ol>
-      </section>
+    <!-- Screen 2: 3D-Viewer -->
+    <section class="screen screen--viewer" id="screen-viewer" hidden aria-labelledby="viewer-title">
+      <div class="viewer">
+        <div class="viewer__stage" id="stage">
+          <canvas id="canvas" aria-label="3D-Modell des Fensters"></canvas>
 
-      <!-- Screen 2: 3D-Viewer -->
-      <section
-        class="screen screen--viewer"
-        id="screen-viewer"
-        hidden
-        aria-labelledby="viewer-title"
-      >
-        <div class="viewer">
-          <div class="viewer__stage" id="stage">
-            <canvas id="canvas" aria-label="3D-Modell des Fensters"></canvas>
+          <div class="viewer__loading" id="viewer-loading" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="viewer-loading-text">Modell wird geladen …</span>
+          </div>
 
-            <div class="viewer__loading" id="viewer-loading" aria-live="polite">
-              <span class="spinner" aria-hidden="true"></span>
-              <span id="viewer-loading-text">Modell wird geladen …</span>
-            </div>
-
-            <!-- Toolbar: auf Desktop Icon + Text, auf Mobile nur Icons (Text bleibt als aria-label) -->
-            <!-- Kopfzeile der Bühne: links das Overlay, rechts die Werkzeugleiste. Beide in einer
+          <!-- Toolbar: auf Desktop Icon + Text, auf Mobile nur Icons (Text bleibt als aria-label) -->
+          <!-- Kopfzeile der Bühne: links das Overlay, rechts die Werkzeugleiste. Beide in einer
                Zeile, damit die Leiste den Platz bekommt, der neben dem Overlay übrig bleibt,
                und darauf per Container-Abfrage reagieren kann. -->
-            <div class="viewer__top">
-              <div
-                class="stats"
-                id="stats"
-                role="status"
-                aria-live="off"
-                hidden
-              >
-                <div class="stats__fps">
-                  <b id="stats-fps">--</b><span>FPS</span>
-                </div>
-                <dl class="stats__list">
-                  <dt>Auflösung</dt>
-                  <dd id="stats-res">--</dd>
-                  <dt>Grafik</dt>
-                  <dd id="stats-gpu">--</dd>
-                  <dt>Stufe</dt>
-                  <dd id="stats-tier">--</dd>
-                </dl>
+          <div class="viewer__top">
+            <div class="stats" id="stats" role="status" aria-live="off" hidden>
+              <div class="stats__fps">
+                <b id="stats-fps">--</b><span>FPS</span>
               </div>
-
-              <div class="viewer__toolbar">
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-open"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Flügel öffnen"
-                  data-tip="Flügel öffnen"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="1" />
-                    <path d="M6.5 6.5v11l8 3.5V3z" />
-                  </svg>
-                  <span class="btn__label">Flügel öffnen</span>
-                </button>
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-tilt"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Flügel kippen"
-                  data-tip="Flügel kippen"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="1" />
-                    <path d="M6.5 17.5h11L20 5.5H4z" />
-                  </svg>
-                  <span class="btn__label">Flügel kippen</span>
-                </button>
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-explode"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Explosionsansicht"
-                  data-tip="Explosionsansicht"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="8.5" y="8.5" width="7" height="7" />
-                    <path
-                      d="M8.5 8.5 5 5M15.5 8.5 19 5M8.5 15.5 5 19M15.5 15.5 19 19"
-                    />
-                    <path
-                      d="M2.5 2.5h3v3h-3zM18.5 2.5h3v3h-3zM2.5 18.5h3v3h-3zM18.5 18.5h3v3h-3z"
-                    />
-                  </svg>
-                  <span class="btn__label">Explosionsansicht</span>
-                </button>
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-outside"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Außenansicht"
-                  data-tip="Außenansicht"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M2.5 11.5 12 3.5l9.5 8" />
-                    <path d="M5 10v10.5h14V10" />
-                    <path d="M9.5 13h5v5h-5zM12 13v5M9.5 15.5h5" />
-                  </svg>
-                  <span class="btn__label">Außenansicht</span>
-                </button>
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-reset"
-                  type="button"
-                  aria-label="Ansicht zurücksetzen"
-                  data-tip="Ansicht zurücksetzen"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M20 12a8 8 0 1 1-2.6-5.9" />
-                    <path d="M20.5 3.5v5.5H15" />
-                  </svg>
-                  <span class="btn__label">Ansicht zurücksetzen</span>
-                </button>
-                <button
-                  class="btn btn--ghost btn--small"
-                  id="btn-stats"
-                  type="button"
-                  aria-label="Leistungs-Overlay"
-                  data-tip="Leistungs-Overlay"
-                  aria-pressed="false"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 19V9M9 19V5M14 19v-7M19 19v-4" />
-                  </svg>
-                  <span class="btn__label">Leistungs-Overlay</span>
-                </button>
-              </div>
+              <dl class="stats__list">
+                <dt>Auflösung</dt>
+                <dd id="stats-res">--</dd>
+                <dt>Grafik</dt>
+                <dd id="stats-gpu">--</dd>
+                <dt>Stufe</dt>
+                <dd id="stats-tier">--</dd>
+              </dl>
             </div>
 
-            <div class="viewer__hint" id="viewer-hint">
-              Antippen: Bauteil · Doppelt antippen: heranzoomen · Ziehen: Drehen
-              · Scrollen: Zoom
-            </div>
-
-            <div class="hoverlabel" id="hover-label" aria-hidden="true" hidden>
-              <span class="hoverlabel__dot"></span>
-              <span id="hover-label-text"></span>
-            </div>
-          </div>
-
-          <!-- Tooltip: auf Desktop schwebend über der Bühne (absolut im .viewer-Grid positioniert),
-             auf Mobile ein Panel im Dokumentfluss direkt unter dem Canvas -->
-          <div
-            class="tooltip"
-            id="tooltip"
-            role="dialog"
-            aria-labelledby="tt-title"
-            aria-describedby="tt-info"
-            tabindex="-1"
-            hidden
-          >
-            <!-- Eigene Ebene für den Inhalt: der Pfeil ist ::before der Karte und wird dadurch VOR
-               dieser Ebene gezeichnet. So legt sich der Schein des Knopfes auch über den Pfeil. -->
-            <div class="tooltip__body">
-              <button
-                class="tooltip__close"
-                id="tooltip-close"
-                type="button"
-                aria-label="Schließen"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6 6l12 12M18 6L6 18" />
+            <div class="viewer__toolbar">
+              <button class="btn btn--ghost btn--small" id="btn-open" type="button" aria-pressed="false"
+                aria-label="Flügel öffnen" data-tip="Flügel öffnen">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="1" />
+                  <path d="M6.5 6.5v11l8 3.5V3z" />
                 </svg>
+                <span class="btn__label">Flügel öffnen</span>
               </button>
-              <p class="eyebrow">Bauteil</p>
-              <h3 class="tooltip__title" id="tt-title"></h3>
-              <p class="tooltip__info" id="tt-info"></p>
-              <a class="btn btn--primary btn--small" id="tt-link" href="#">
-                <span id="tt-link-label">Im Shop ansehen</span>
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12h14M13 6l6 6-6 6" />
+              <button class="btn btn--ghost btn--small" id="btn-tilt" type="button" aria-pressed="false"
+                aria-label="Flügel kippen" data-tip="Flügel kippen">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="1" />
+                  <path d="M6.5 17.5h11L20 5.5H4z" />
                 </svg>
-              </a>
+                <span class="btn__label">Flügel kippen</span>
+              </button>
+              <button class="btn btn--ghost btn--small" id="btn-explode" type="button" aria-pressed="false"
+                aria-label="Explosionsansicht" data-tip="Explosionsansicht">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="8.5" y="8.5" width="7" height="7" />
+                  <path d="M8.5 8.5 5 5M15.5 8.5 19 5M8.5 15.5 5 19M15.5 15.5 19 19" />
+                  <path d="M2.5 2.5h3v3h-3zM18.5 2.5h3v3h-3zM2.5 18.5h3v3h-3zM18.5 18.5h3v3h-3z" />
+                </svg>
+                <span class="btn__label">Explosionsansicht</span>
+              </button>
+              <button class="btn btn--ghost btn--small" id="btn-outside" type="button" aria-pressed="false"
+                aria-label="Außenansicht" data-tip="Außenansicht">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 11.5 12 3.5l9.5 8" />
+                  <path d="M5 10v10.5h14V10" />
+                  <path d="M9.5 13h5v5h-5zM12 13v5M9.5 15.5h5" />
+                </svg>
+                <span class="btn__label">Außenansicht</span>
+              </button>
+              <button class="btn btn--ghost btn--small" id="btn-reset" type="button" aria-label="Ansicht zurücksetzen"
+                data-tip="Ansicht zurücksetzen">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+                  <path d="M20.5 3.5v5.5H15" />
+                </svg>
+                <span class="btn__label">Ansicht zurücksetzen</span>
+              </button>
+              <button class="btn btn--ghost btn--small" id="btn-stats" type="button" aria-label="Leistungs-Overlay"
+                data-tip="Leistungs-Overlay" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 19V9M9 19V5M14 19v-7M19 19v-4" />
+                </svg>
+                <span class="btn__label">Leistungs-Overlay</span>
+              </button>
             </div>
           </div>
 
-          <aside class="viewer__side">
-            <p class="eyebrow">Ihr Fenster</p>
-            <h2 id="viewer-title">Dreh-Kipp-Fenster 1200 × 1400</h2>
-            <p class="muted">Modell-Nr. FK-2026-0417 · erkannt per QR-Code</p>
-            <h3 class="viewer__side-title">Bauteile</h3>
-            <ul class="parts" id="parts"></ul>
-            <p class="muted viewer__side-note">
-              Tippen Sie ein Bauteil in der Liste oder direkt im Modell an.
-            </p>
-          </aside>
-        </div>
-      </section>
-    </main>
+          <div class="viewer__hint" id="viewer-hint">
+            Antippen: Bauteil · Doppelt antippen: heranzoomen · Ziehen: Drehen
+            · Scrollen: Zoom
+          </div>
 
-    <!-- Scan-Overlay (Dummy-Animation) -->
-    <div class="scan" id="scan" hidden aria-live="polite">
-      <div class="scan__inner">
-        <div class="scan__viewfinder" aria-hidden="true">
-          <span class="scan__corner scan__corner--tl"></span>
-          <span class="scan__corner scan__corner--tr"></span>
-          <span class="scan__corner scan__corner--bl"></span>
-          <span class="scan__corner scan__corner--br"></span>
-          <svg class="scan__qr" id="scan-qr" shape-rendering="crispEdges"></svg>
-          <div class="scan__laser"></div>
-          <div class="scan__check">
-            <svg viewBox="0 0 84 84">
-              <circle cx="42" cy="42" r="40" fill="#CC0000" />
-              <path
-                d="M26 44l11 11 22-24"
-                fill="none"
-                stroke="#fff"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+          <div class="hoverlabel" id="hover-label" aria-hidden="true" hidden>
+            <span class="hoverlabel__dot"></span>
+            <span id="hover-label-text"></span>
           </div>
         </div>
-        <div class="scan__card">
-          <h3 id="scan-title">Jetzt QR-Code scannen</h3>
-          <p id="scan-text">Ihr Fenstermodell wird Ihnen in Folge angezeigt.</p>
-          <div class="scan__progress"><span></span></div>
+
+        <!-- Tooltip: auf Desktop schwebend über der Bühne (absolut im .viewer-Grid positioniert),
+             auf Mobile ein Panel im Dokumentfluss direkt unter dem Canvas -->
+        <div class="tooltip" id="tooltip" role="dialog" aria-labelledby="tt-title" aria-describedby="tt-info"
+          tabindex="-1" hidden>
+          <!-- Eigene Ebene für den Inhalt: der Pfeil ist ::before der Karte und wird dadurch VOR
+               dieser Ebene gezeichnet. So legt sich der Schein des Knopfes auch über den Pfeil. -->
+          <div class="tooltip__body">
+            <button class="tooltip__close" id="tooltip-close" type="button" aria-label="Schließen">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+            <p class="eyebrow">Bauteil</p>
+            <h3 class="tooltip__title" id="tt-title"></h3>
+            <p class="tooltip__info" id="tt-info"></p>
+            <a class="btn btn--primary btn--small" id="tt-link" href="#">
+              <span id="tt-link-label">Im Shop ansehen</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </a>
+          </div>
         </div>
+
+        <aside class="viewer__side">
+          <p class="eyebrow">Ihr Fenster</p>
+          <h2 id="viewer-title">Dreh-Kipp-Fenster 1200 × 1400</h2>
+          <p class="muted">Modell-Nr. FK-2026-0417 · erkannt per QR-Code</p>
+          <h3 class="viewer__side-title">Bauteile</h3>
+          <ul class="parts" id="parts"></ul>
+          <p class="muted viewer__side-note">
+            Tippen Sie ein Bauteil in der Liste oder direkt im Modell an.
+          </p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- Scan-Overlay (Dummy-Animation) -->
+  <div class="scan" id="scan" hidden aria-live="polite">
+    <div class="scan__inner">
+      <div class="scan__viewfinder" aria-hidden="true">
+        <span class="scan__corner scan__corner--tl"></span>
+        <span class="scan__corner scan__corner--tr"></span>
+        <span class="scan__corner scan__corner--bl"></span>
+        <span class="scan__corner scan__corner--br"></span>
+        <svg class="scan__qr" id="scan-qr" shape-rendering="crispEdges"></svg>
+        <div class="scan__laser"></div>
+        <div class="scan__check">
+          <svg viewBox="0 0 84 84">
+            <circle cx="42" cy="42" r="40" fill="#CC0000" />
+            <path d="M26 44l11 11 22-24" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+      </div>
+      <div class="scan__card">
+        <h3 id="scan-title">Jetzt QR-Code scannen</h3>
+        <p id="scan-text">Ihr Fenstermodell wird Ihnen in Folge angezeigt.</p>
+        <div class="scan__progress"><span></span></div>
       </div>
     </div>
+  </div>
 
-    <footer class="footer" id="footer">
-      <div class="footer__inner">
-        <div>
-          <p class="footer__logo">
-            Explosion&nbsp;View<span class="logo__tag">Demo</span>
-          </p>
-          <p>
-            Ersatzteile zum eigenen Fenster finden: scannen, im 3D-Modell
-            antippen, direkt bestellen.
-          </p>
-        </div>
-        <nav aria-labelledby="f-nav">
-          <h2 id="f-nav">Seiten</h2>
-          <ul>
-            <li><a href="index.html">Demo starten</a></li>
-            <li><a href="#">Shop</a></li>
-          </ul>
-        </nav>
-        <div>
-          <h2 id="f-note">Hinweise</h2>
-          <ul aria-labelledby="f-note">
-            <li>Demonstrator, keine echten Auftragsdaten</li>
-            <li>Der QR-Scan wird simuliert</li>
-            <li>Shop-Adressen sind Platzhalter</li>
-          </ul>
-        </div>
+  <footer class="footer" id="footer">
+    <div class="footer__inner">
+      <div>
+        <p class="footer__logo">
+          Explosion&nbsp;View<span class="logo__tag">Demo</span>
+        </p>
+        <p>
+          Ersatzteile zum eigenen Fenster finden: scannen, im 3D-Modell
+          antippen, direkt bestellen.
+        </p>
       </div>
-      <div class="footer__bottom">
-        <span>© 2026 Explosion View · Demo</span>
+      <nav aria-labelledby="f-nav">
+        <h2 id="f-nav">Seiten</h2>
+        <ul>
+          <li><a href="index.html">Demo starten</a></li>
+          <li><a href="#">Shop</a></li>
+        </ul>
+      </nav>
+      <div>
+        <h2 id="f-note">Hinweise</h2>
+        <ul aria-labelledby="f-note">
+          <li>Demonstrator, keine echten Auftragsdaten</li>
+          <li>Der QR-Scan wird simuliert</li>
+          <li>Shop-Adressen sind Platzhalter</li>
+        </ul>
       </div>
-    </footer>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 Explosion View · Demo</span>
+    </div>
+  </footer>
 
-    <script type="module" src="js/app.js"></script>
-  </body>
+  <script type="module" src="js/app.js"></script>
+</body>
+
 </html>
