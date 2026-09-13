@@ -238,13 +238,15 @@ const EXPLODE_OFFSETS = {
   Rahmen_rechts:    [ 0.28, 0, 0],
   Rahmen_oben:      [ 0, 0.28, 0],
   Rahmen_unten:     [ 0, -0.28, 0],
-  Anschlussfuge:    [ 0, 0, 0.12],
-  // Falzdichtung sitzt außen auf dem Flügel: eine Ebene hinter ihm, zwischen Fuge und Flügel.
-  Falzdichtung:     [ 0, 0, 0.2],
+  Anschlussfuge:    [ 0, 0, 0.10],
+  // Beide Flügeldichtungen liegen zwischen Flügel und Blendrahmen, also HINTER dem Flügel:
+  // die Falzdichtung tiefer im Falz (zweiter Anschlag), die Anschlagdichtung am Überschlag.
+  // Die Anschlagdichtung stand früher vor dem Flügel (0.42) und fuhr durch ihn hindurch.
+  Falzdichtung:     [ 0, 0, 0.16],
+  Anschlagdichtung: [ 0, 0, 0.22],
   Fluegel:          [ 0, 0, 0.3],
   Band_oben:        [-0.5, 0, 0.3],
   Band_unten:       [-0.5, 0, 0.3],
-  Anschlagdichtung: [ 0, 0, 0.42],
   Dichtung:         [ 0, 0, 0.55],
   Glas:             [ 0, 0, 0.75],
   Glasleiste:       [ 0, 0, 0.9],
@@ -269,8 +271,8 @@ const HARDWARE_MATERIAL = 'Beschlag_Stahl';
 // Start-Verzögerung je Bauteil in der Intro-Animation (Anteil der Gesamtdauer).
 const INTRO_DELAY = {
   Rahmen_links: 0, Rahmen_rechts: 0, Rahmen_oben: 0.06, Rahmen_unten: 0.06, Anschlussfuge: 0.04,
-  Falzdichtung: 0.16,
-  Fluegel: 0.2, Band_oben: 0.25, Band_unten: 0.25, Anschlagdichtung: 0.28,
+  Falzdichtung: 0.12, Anschlagdichtung: 0.16,
+  Fluegel: 0.2, Band_oben: 0.25, Band_unten: 0.25,
   Dichtung: 0.32, Glas: 0.38, Glasleiste: 0.43, Griff: 0.5,
 };
 const MOUNT_INTRO_DELAY = { sash: 0.22, frame: 0.03, hinge: 0.25 };
@@ -322,14 +324,22 @@ const FLOOR_CLEARANCE = 0.08;
 // kurzen Zug quer über den Rahmen. Mit 0.05 fährt das Bild am Mindestabstand bei einem Zug
 // über die volle Bühnenhöhe rund 2,5 Bildhöhen weit; in der Übersicht dreht derselbe Zug um
 // 250 Grad.
-const ROTATE_SPEED = 0.7;
-const ROTATE_SPEED_NEAR = 0.05;
+const ROTATE_SPEED = 0.6;
+const ROTATE_SPEED_NEAR = 0.1;
+// Dritte Stützstelle für die Zoom-Mitte (halbe Kopplungsstärke, rund 1,4 m). Dort ist der
+// Schwenk je Zug sonst am größten, weil Drehung und Kopplung beide noch kräftig sind — mit nur
+// zwei Stützstellen lag er in der Mitte beim Doppelten des Werts am Mindestabstand.
+const ROTATE_SPEED_MID = 0.16;
 // Ab welcher Nähe (0 = Home-Distanz, 1 = Mindestabstand) die Kopplung des Blickpunkts an die
 // Drehung einsetzt. Weiter draußen dreht die Kamera rein um die Fenstermitte. Bewusst nicht
 // null: begann die Kopplung schon auf Home-Distanz, fuhr der Blickpunkt bei halbem Zoom je
 // Grad Drehung anderthalbmal so weit seitlich wie der Orbit-Weg, und die Ansicht rutschte
 // von Kante zu Kante, statt sich zu drehen. Mit 0.4 beginnt sie bei rund 2,1 m.
 const COUPLING_START = 0.4;
+// Der aufsummierte Schwenk (Rohwert) wird bei diesem Vielfachen seiner Grenze gekappt: dort
+// erreicht softLimit 95 % der Grenze. Ließe man ihn weiterlaufen, müsste man beim Zurückdrehen
+// erst den Überhang abtragen, bevor sich der Blickpunkt wieder bewegt — eine tote Zone.
+const SWIVEL_RAW_MAX = 1.06;
 // Neigung nach oben und nach unten gleich weit (rad, gemessen von +y). Die Boden- und
 // Wandschranke in applyNearLimits() engt das nah am Fenster zusätzlich ein.
 const POLAR_TILT = 2.3;
@@ -679,17 +689,18 @@ export class WindowViewer {
     this.homeTarget = new THREE.Vector3(0, 1.6, 0);
     this.pivot = new THREE.Vector3(0, 1.6, 0);   // aktueller Drehpunkt, wird bei der Explosion animiert
     this.homeDist = 3;
-    // Schwenk gekoppelt an die Rotation: der Blickpunkt wandert mit der Kamera zur Seite
-    // und folgt ihrer Höhe. Alle Werte in Metern pro Radiant und linear im Winkel (kein
-    // Sinus: der ist in der Frontansicht am steilsten und lässt die Mitte eines Schwenks
-    // wie eine schnelle Seitenfahrt wirken).
-    // Auf Home-Distanz und weiter weg ist der Versatz null: der Blickpunkt ist die Fenstermitte,
-    // aus jedem Winkel. Nah (am Mindestabstand): Blickpunkt auf dem Rahmen, relativ zur
-    // Wandnormale auf der Seite, auf der die Kamera steht (xFrame), und mit der Kamerahöhe oben
-    // oder unten (yFrameUp, yFrame), weich begrenzt in Metern (xMax seitlich, yUp nach oben,
-    // yDown nach unten). So liegt nah am Fenster der Rahmen im Bild und nicht die Scheibe, eine
-    // Ecke erreicht man mit Drehen plus Heben. Dazwischen wird in der Distanz überblendet, der
-    // Blickpunkt wandert beim Zoomen geradlinig (siehe couplingOffset).
+    // Beide Distanzen werden in resize() aus den Boxen berechnet. Der Startwert hier ist
+    // Pflicht: bricht resize() ab, weil die Bühne noch keine Größe hat, bliebe explodeDist
+    // sonst undefined, und die Kamerafahrt der Explosion rechnete (undefined − d)·s = NaN.
+    this.explodeDist = this.homeDist * 1.3;
+    // Schwenk gekoppelt an die Drehung: dreht der Nutzer nah am Fenster, wandert der Blickpunkt
+    // mit der Kamera zur Seite (xFrame) und folgt ihrer Höhe (yFrameUp, yFrame) — Gewinne in
+    // Metern je Radiant gedrehtem Winkel, mal Kopplungsstärke (naehe). Weich begrenzt in Metern
+    // (xMax seitlich, yUp nach oben, yDown nach unten): der Blickpunkt darf bis kurz vor die
+    // Fensterkante, nicht darüber hinaus. So liegt nah am Fenster der Rahmen im Bild und nicht
+    // die Scheibe, eine Ecke erreicht man mit Drehen plus Heben. Der Schwenk wird aus den
+    // Winkeländerungen AUFSUMMIERT (applyPanCoupling), er ist keine Funktion des Winkels:
+    // Zoomen schwenkt nie, und auf Home-Distanz ist der Blickpunkt die Fenstermitte.
     // Alle sechs Werte werden beim Laden aus der Fenstergeometrie berechnet, die Zahlen hier
     // sind nur Platzhalter. Die Grenzen sind die Fensterkante minus PIVOT_INSET; die Gewinne
     // sind so bemessen, dass der Blickpunkt seine Grenze genau dort erreicht, wo
@@ -723,9 +734,13 @@ export class WindowViewer {
     this.homeAzimuth = Math.atan2(this.homeDir.x, this.homeDir.z);
     this._panWant = new THREE.Vector3();
     this._pivotDelta = new THREE.Vector3();
-    // Rückstand der Kamera hinter einem zurückgewichenen Drehpunkt (siehe applyPanCoupling):
-    // die Kopplung rechnet mit der Kamera dort, wo sie stünde, wäre sie mitgefahren.
-    this.panLag = new THREE.Vector3();
+    // Aufsummierter Schwenk in Metern relativ zum Drehpunkt (x seitlich, y Höhe), unbegrenzt
+    // bis SWIVEL_RAW_MAX; wirksam wird softLimit davon. Siehe applyPanCoupling.
+    this.swivelRaw = new THREE.Vector3();
+    // Pose relativ zum Blickpunkt am Ende des letzten Frames (siehe merkePose): daraus liest
+    // applyPanCoupling, wie weit der Nutzer seither gedreht und gezoomt hat.
+    this._pose = { theta: 0, phi: 0, dist: 0 };
+    this._poseGemerkt = false;
     this._dirFrom = new THREE.Vector3();
     this._dirTmp = new THREE.Vector3();
     this._dirTmp2 = new THREE.Vector3();
@@ -1318,7 +1333,9 @@ export class WindowViewer {
   // Gleichgewichtspunkt der Kopplung, damit der nächste Tick nichts nachschiebt.
   placeAtStandardPose() {
     const pose = this.standardPose();
-    const target = this.coupledTarget(pose.dir, pose.dist, 1, this._panWant);
+    this.swivelRaw.set(0, 0, 0);
+    this._poseGemerkt = false;   // gesetzte Pose ist keine Nutzereingabe
+    const target = this.baseTarget();
     this.controls.target.copy(target);
     this.camera.position.copy(target).addScaledVector(pose.dir, pose.dist);
     this.camera.lookAt(target);
@@ -1390,36 +1407,6 @@ export class WindowViewer {
 
   get open() { return this.sashMode === 'open'; }
   get tilted() { return this.sashMode === 'tilt'; }
-
-  // Versatz des gekoppelten Schwenks (Meter, relativ zum Drehpunkt) für Azimut, Neigung
-  // und Distanz der Kamera; `scale` ist die Kopplungsstärke (panScale oder 1 für Endposen).
-  couplingOffset(theta, phi, dist, scale, out) {
-    const pc = this.panCoupling;
-    // Auf Home-Distanz und weiter weg ist der Versatz NULL: der Blickpunkt ist dort immer
-    // die Fenstermitte, aus jedem Winkel. Es gibt also nur einen Punkt. Ein früher hier
-    // vorhandener Fern-Versatz (0.1 m je Radiant seitlich) lag in der Home-Ansicht 4 cm
-    // neben der Mitte und wurde nach jeder Kamerafahrt in einem einzigen Frame nachgeholt,
-    // sichtbar als seitlicher Hüpfer. Erst beim Heranzoomen wandert der Blickpunkt auf den
-    // Rahmen, damit man die Ecken inspizieren kann.
-    // Nah: auf dem Rahmen. Seite, auf der die Kamera relativ zur Wandnormale steht, als Winkel;
-    // gilt innen (Kamera bei +z) wie außen (bei -z), jeweils zur Kamera hin positiv.
-    const side = Math.asin(clamp(Math.sin(theta), -1, 1));
-    // Überblendung zwischen Kopplungsschwelle (0) und Mindestabstand (1), siehe naehe().
-    const u = this.naehe(dist);
-    const nearX = softLimit(pc.xFrame * side, -pc.xMax, pc.xMax);
-    // Stetig über die Waagrechte hinweg: bei dPhi = 0 ist beides null. yFrameUp und yFrame
-    // sind getrennt, damit oben und unten unabhängig eingestellt werden können; aktuell
-    // stehen beide gleich, weil die Maueröffnung nach oben und unten gleich weit begrenzt.
-    const dPhi = Math.PI / 2 - phi;
-    const nearY = softLimit((dPhi > 0 ? pc.yFrameUp : pc.yFrame) * dPhi, -pc.yDown, pc.yUp);
-    return out.set(nearX * u, nearY * u, 0).multiplyScalar(scale);
-  }
-
-  // Blickpunkt, an dem die Kopplung für eine Blickrichtung (Einheitsvektor Kamera minus
-  // Ziel) und Distanz im Gleichgewicht ist: dort endet eine Kamerafahrt sprungfrei.
-  coupledTarget(dir, dist, scale, out) {
-    return this.couplingOffset(Math.atan2(dir.x, dir.z), Math.acos(clamp(dir.y, -1, 1)), dist, scale, out).add(this.baseTarget());
-  }
 
   homePosition(dist = this.homeDist, dir = this.homeDir, target = this.baseTarget()) {
     return target.clone().addScaledVector(dir, dist);
@@ -1633,27 +1620,36 @@ export class WindowViewer {
     const now = performance.now();
     let changed = this.updateTweens(now);
     if (!this.hasTween('camera') && !this.hasTween('view')) {
-      // Drehgeschwindigkeit aus dem Bildweg je Zug, nicht aus einer Überblendung der
-      // Geschwindigkeit. Je Radiant Drehung bewegt sich das Bild um den Orbit-Weg (d) plus den
-      // Schwenk der Kopplung (G·u), gemessen relativ zur Bildhöhe (∝ d). Dieser Bildweg wird
-      // zwischen Übersicht und Mindestabstand linear überblendet und die Geschwindigkeit
-      // daraus zurückgerechnet. Überblendet man stattdessen die Geschwindigkeit, hat das
-      // Produkt aus fallender Drehung und steigender Kopplung in der Mitte eine Beule: bei
-      // 1,7 m fuhr der Blickpunkt je Zug 3,7-mal so weit wie am Mindestabstand — der Nutzer
-      // meldete „schwenkt in der Mitte des Zooms zu schnell von einer Seite zur anderen".
-      const nah = this.nahWert();
-      const d = this.camera.position.distanceTo(this.controls.target);
-      const u = this.naehe(d);
+      const dist0 = this.camera.position.distanceTo(this.controls.target);
+      // Drehgeschwindigkeit aus dem Bildweg je Zug an drei Stützstellen (Übersicht, halbe
+      // Kopplung, Mindestabstand), nicht aus einer Überblendung der Geschwindigkeit: je Radiant
+      // bewegt sich das Bild um den Orbit-Weg (d) plus den Schwenk (G·u), gemessen relativ zur
+      // Bildhöhe (∝ d). Der Bildweg wird stückweise linear in der wirksamen Kopplung u
+      // überblendet und die Geschwindigkeit daraus zurückgerechnet. Überblendet man die
+      // Geschwindigkeit selbst, hat das Produkt aus fallender Drehung und steigender Kopplung in
+      // der Mitte eine Beule (gemessen: bei 1,7 m fuhr der Blickpunkt je Zug 3,7-mal so weit wie
+      // am Mindestabstand). Im Fokus ist die Kopplung aus (panScale 0), also u = 0 und volle
+      // Geschwindigkeit: die Bremse gilt dem Schwenk, nicht der Nähe.
+      const u = this.naehe(dist0) * this.panScale;
       const G = this.panCoupling.xFrame;
-      const wegNah = ROTATE_SPEED_NEAR * (MIN_DIST + G) / MIN_DIST;   // Bildweg je Radiant am Mindestabstand
-      this.controls.rotateSpeed = (ROTATE_SPEED * (1 - u) + wegNah * u) * d / (d + G * u);
-      this.applyNearLimits(nah);
+      const dMitte = this.homeDist - (COUPLING_START + 1) / 2 * (this.homeDist - MIN_DIST);
+      const wegFern = ROTATE_SPEED;
+      const wegMitte = ROTATE_SPEED_MID * (dMitte + G * 0.5) / dMitte;
+      const wegNah = ROTATE_SPEED_NEAR * (MIN_DIST + G) / MIN_DIST;
+      const weg = u < 0.5
+        ? wegFern + (wegMitte - wegFern) * (u / 0.5)
+        : wegMitte + (wegNah - wegMitte) * ((u - 0.5) / 0.5);
+      this.controls.rotateSpeed = dist0 > 1e-6 ? weg * dist0 / (dist0 + G * u) : ROTATE_SPEED;
+      this.applyNearLimits(this.nahWert());
       if (this.controls.update()) changed = true;
       if (this.applyPanCoupling()) changed = true;
       if (this.applyBoundsConstraint()) changed = true;
       if (this.keepClear()) changed = true;
+      this.merkePose();
     } else {
+      // Die Fahrt setzt die Kamera selbst; was sie bewegt, ist keine Nutzereingabe.
       this.freeControlLimits();
+      this._poseGemerkt = false;
     }
 
     if (this.pendingHover && !this.dragging && !this.introPlaying) {
@@ -1675,58 +1671,82 @@ export class WindowViewer {
     if (this.statsMode) this.needsRender = true;
   }
 
-  // Blickpunkt pro Frame nachführen. Der Blickpunkt ist immer Drehpunkt plus Kopplungsversatz,
-  // und der Versatz hängt vom Winkel Kamera→Blickpunkt ab. Die einzige stabile Art, ihn zu
-  // aktualisieren: Kamera und Blickpunkt um DENSELBEN Vektor verschieben. Dann ändert sich der
-  // Winkel nicht, also auch nicht der Versatz — ein Schritt, kein Nachlauf.
+  // Blickpunkt pro Frame nachführen: Blickpunkt = Drehpunkt + Schwenk. Der Schwenk entsteht
+  // NUR aus Drehung: die Winkeländerung, die der Nutzer in diesem Frame gemacht hat (Pose vor
+  // und nach controls.update, gegen denselben Blickpunkt gemessen), wird mit Gewinn und
+  // Kopplungsstärke in Meter übersetzt und aufsummiert. Zoomen schwenkt nie: hinein ändert
+  // den Schwenk nicht, hinaus blendet ihn im Verhältnis der Kopplungsstärke aus, auf Home-
+  // Distanz ist der Blickpunkt die Fenstermitte. Kamera und Blickpunkt werden immer um
+  // DENSELBEN Vektor verschoben, die Orbit-Geometrie bleibt unverändert.
   //
   // Wandert der Drehpunkt (Explosion, Drehstellung, Fokus auf ein bewegtes Teil), folgt ihm
-  // der Blickpunkt. Die Kamera fährt nur mit, wenn er auf sie ZUKOMMT (oder ein Fokus dem
-  // Teil folgt): nah am Fenster ist das genau das Zurückweichen, das der Mindestabstand
-  // ohnehin verlangt hätte, und weil sich dabei kein Winkel ändert, driftet nichts. Bliebe sie
-  // stehen, würde die Kopplung auf den veränderten Winkel mit einer Drift nach oben oder unten
-  // antworten (gemessen: 20 cm beim Öffnen aus 0,7 m von schräg oben).
-  // Weicht der Drehpunkt ZURÜCK (Flügel schließt, Explosion klappt ein), bleibt die Kamera
-  // stehen. Die Kamera fährt von sich aus nie auf das Fenster zu — wer nah am offenen Flügel
-  // steht und die Explosion auslöst, würde sonst erst 46 cm in Richtung Wand geschoben (der
-  // Flügel schließt vorher, sein Drehpunkt wandert zurück). Damit die Kopplung dabei nicht
-  // ihren Versatz abwickelt (mit dem Abstand ändern sich die Winkel; gemessen: 34 cm
-  // seitlicher Slide während des Schließens), rechnet sie mit der Kamera dort, wo sie stünde,
-  // wäre sie mitgefahren: `panLag` sammelt den Rückstand. Beim Auszoomen wird er mit der Nähe
-  // ausgeblendet (auf Home-Distanz ist der Blickpunkt immer die Fenstermitte), bei jeder
-  // Kamerafahrt gelöscht (die endet ohnehin an einem reinen Gleichgewichtspunkt).
+  // der Blickpunkt, der Schwenk bleibt relativ zu ihm erhalten. Die Kamera fährt nur mit, wenn
+  // er auf sie ZUKOMMT (oder ein Fokus dem Teil folgt): nah am Fenster ist das genau das
+  // Zurückweichen, das der Mindestabstand ohnehin verlangt hätte. Weicht der Drehpunkt ZURÜCK
+  // (Flügel schließt, Explosion klappt ein), bleibt die Kamera stehen — sie fährt von sich aus
+  // nie auf das Fenster zu.
   //
-  // Früher wurde der Blickpunkt bei wanderndem Drehpunkt mit stehender Kamera per Fixpunkt-
-  // Iteration neu bestimmt. Das divergiert: nah am Fenster ist die Verstärkung pro Schritt
-  // (Kopplungsgewinn geteilt durch Abstand) größer als eins, der Blickpunkt raste an den
-  // oberen oder unteren Anschlag, und beim Tween-Ende riss der reguläre Schritt die Kamera um
-  // über einen Meter mit. Gemessen am 12.09.: 1,18 m in einem Frame, beim Öffnen wie bei der
-  // Explosion.
+  // Frühere Fassungen waren eine Funktion des Winkels (Blickpunkt = f(Azimut, Neigung,
+  // Abstand)). Erst divergierte sie bei wanderndem Drehpunkt per Fixpunkt-Iteration (1,18 m
+  // in einem Frame, 12.09.), dann war sie mit einem Rückstand-Vektor stabil, zog aber beim
+  // Hineinzoomen entlang der Home-Richtung die Kamera in die linke obere Ecke, weil der
+  // Home-Winkel mit wachsender Nähe zu einem Versatz wurde. Eine aufsummierte Kopplung hat
+  // beides nicht: kein Winkel, kein Fixpunkt, kein Versatz ohne Drehung.
+  // Die Nutzereingabe wird als Differenz zur gemerkten Pose des letzten Frames gelesen
+  // (merkePose, am Ende des Controls-Blocks in tick). Nicht um controls.update() herum: die
+  // Zeiger- und Rad-Handler der OrbitControls rufen update() selbst auf, der Rad-Zoom ist also
+  // schon angewendet, bevor tick "vorher" misst, und vom Ziehen sieht man nur die gedämpften
+  // 92 Prozent. Gemessen: der Schwenk blendete beim Hinauszoomen nicht aus und sprang bei 2,1 m
+  // um 55 cm auf die Mitte.
   // @returns {boolean} true, wenn sich etwas bewegt hat
   applyPanCoupling() {
     const t = this.controls.target;
     const cam = this.camera.position;
+    const pc = this.panCoupling;
+    const raw = this.swivelRaw;
     let moved = false;
+
+    // Drehung und Zoom seit dem letzten Frame, gegen den noch unveränderten Blickpunkt gemessen.
+    const off = this._dirTmp.subVectors(cam, t);
+    const dist = off.length();
+    const u = this.naehe(dist) * this.panScale;
+    if (this._poseGemerkt && u > 0) {
+      const p0 = this._pose;
+      const u0 = this.naehe(p0.dist) * this.panScale;
+      const theta1 = Math.atan2(off.x, off.z);
+      const phi1 = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
+      // Seite zur Kamera hin, innen wie außen: asin(sin) faltet den Azimut auf ±90 Grad, so
+      // wandert der Blickpunkt auf beiden Seiten der Wand zur Kamera hin.
+      const dSeite = Math.asin(clamp(Math.sin(theta1), -1, 1)) - Math.asin(clamp(Math.sin(p0.theta), -1, 1));
+      const dHoehe = p0.phi - phi1;
+      raw.x = clamp(raw.x + pc.xFrame * u * dSeite, -SWIVEL_RAW_MAX * pc.xMax, SWIVEL_RAW_MAX * pc.xMax);
+      const gY = raw.y + dHoehe >= 0 ? pc.yFrameUp : pc.yFrame;
+      raw.y = clamp(raw.y + gY * u * dHoehe, -SWIVEL_RAW_MAX * pc.yDown, SWIVEL_RAW_MAX * pc.yUp);
+      // Zoom hinaus (die Kamera hat sich vom Blickpunkt entfernt) blendet den Schwenk im
+      // Verhältnis der Kopplungsstärke aus. Nur der Zoom: ein zurückweichender Drehpunkt wird
+      // erst weiter unten angewendet und steckt schon in der gemerkten Pose.
+      if (dist > p0.dist + 1e-9 && u < u0) raw.multiplyScalar(u / u0);
+    }
+    if (u <= 0) raw.set(0, 0, 0);
+
     if (!this._pivotArmed) {
       this._pivotSeen.copy(this.pivot);
       this._pivotArmed = true;
-      this.panLag.set(0, 0, 0);
+      this._poseGemerkt = false;
+      raw.set(0, 0, 0);
     } else if (!this._pivotSeen.equals(this.pivot)) {
       const d = this._pivotDelta.subVectors(this.pivot, this._pivotSeen);
       this._pivotSeen.copy(this.pivot);
       const back = this._dirTmp2.subVectors(cam, t).normalize();
       t.add(d);
       if (this.focused || d.dot(back) > 0) cam.add(d);
-      else this.panLag.add(d);
       moved = true;
     }
-    const naehe = this.naehe(cam.distanceTo(t));
-    if (naehe <= 0) this.panLag.set(0, 0, 0);
-    const off = this._dirTmp.copy(cam).addScaledVector(this.panLag, naehe).sub(t);
-    const dist = off.length();
-    const theta = Math.atan2(off.x, off.z);
-    const phi = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
-    const want = this.couplingOffset(theta, phi, dist, this.panScale, this._panWant).add(this.baseTarget());
+
+    // Blickpunkt = Drehpunkt + weich begrenzter Schwenk; Kamera um dieselbe Differenz mit.
+    const want = this._panWant
+      .set(softLimit(raw.x, -pc.xMax, pc.xMax), softLimit(raw.y, -pc.yDown, pc.yUp), 0)
+      .add(this.baseTarget());
     const delta = want.sub(t);
     if (delta.lengthSq() > 1e-10) {
       t.add(delta);
@@ -1746,6 +1766,18 @@ export class WindowViewer {
     return moved;
   }
 
+  // Pose relativ zum Blickpunkt am Ende des Controls-Blocks merken (siehe applyPanCoupling).
+  // Läuft NACH Kollisionsschutz und Raum-Schranke, damit deren Verschiebungen im nächsten Frame
+  // nicht als Nutzereingabe gelten.
+  merkePose() {
+    const off = this._dirTmp.subVectors(this.camera.position, this.controls.target);
+    const dist = off.length();
+    this._pose.theta = Math.atan2(off.x, off.z);
+    this._pose.phi = Math.acos(clamp(off.y / Math.max(dist, 1e-6), -1, 1));
+    this._pose.dist = dist;
+    this._poseGemerkt = true;
+  }
+
   // 0 = Home-Distanz oder weiter weg, 1 = Mindestabstand. Linear; Bezug für die Winkelgrenzen.
   // @returns {number}
   nahWert() {
@@ -1756,8 +1788,8 @@ export class WindowViewer {
   // Kopplungsstärke 0 … 1 für einen Abstand `dist`: null ab COUPLING_START nach außen, eins am
   // Mindestabstand, dazwischen smoothstep — die Ableitung ist an beiden Enden null, die
   // Kameraspur knickt beim Überfahren der Schwelle nicht (linear waren es 17 Grad Richtungs-
-  // wechsel). Gilt für den Versatz (couplingOffset), den Rückstand (applyPanCoupling) und die
-  // Drehgeschwindigkeit (tick), damit alle drei an derselben Stelle einsetzen.
+  // wechsel). Gilt für den Schwenk (applyPanCoupling) und die Drehgeschwindigkeit (tick),
+  // damit beide an derselben Stelle einsetzen.
   // @returns {number}
   naehe(dist) {
     return smoothstep(COUPLING_START, 1, clamp((this.homeDist - dist) / Math.max(this.homeDist - MIN_DIST, 0.1), 0, 1));
@@ -2007,6 +2039,9 @@ export class WindowViewer {
         const richtung = this._dirTmp.subVectors(cam, this.controls.target).normalize();
         cam.addScaledVector(richtung, schritt);
         this.constrainPosition(cam, this.controls.target);
+        // Der Rückzug ist kein Zoom des Nutzers: gemerkte Pose nachziehen, sonst blendete
+        // applyPanCoupling den Schwenk um den Rückzugsweg aus.
+        if (this._poseGemerkt) this.merkePose();
       },
     });
     return weg;
@@ -2014,6 +2049,8 @@ export class WindowViewer {
 
   // Nach Kamera-Tweens: Ziel auf den Drehpunkt der Ansicht, Controls neu synchronisieren.
   settleControls() {
+    this.swivelRaw.set(0, 0, 0);
+    this._poseGemerkt = false;
     this.controls.target.copy(this.baseTarget());
     this.applyNearLimits(this.nahWert());
     this.controls.update();
@@ -2070,7 +2107,7 @@ export class WindowViewer {
           dStart = this.camera.position.distanceTo(look);
         }
         const s = progress(p);
-        this.coupledTarget(dirTo, dEnd(), 1, lookTo);
+        lookTo.copy(this.baseTarget());
         look.lerpVectors(lookFrom, lookTo, s);
         const dir = this._dirTmp.copy(dirFrom).lerp(dirTo, s).normalize();
         this.camera.position.copy(look).addScaledVector(dir, dStart + (dEnd() - dStart) * s);
@@ -2505,9 +2542,9 @@ export class WindowViewer {
           panScaleFrom = this.panScale;
           lookFrom.copy(look);
           pivotTo.copy(this.homeTarget);
-          // Ruhepose der Zielseite um den Ziel-Drehpunkt, am Gleichgewichtspunkt der Kopplung.
+          // Ruhepose der Zielseite um den Ziel-Drehpunkt (ohne Schwenk).
           const pose = this.standardPose();
-          this.couplingOffset(Math.atan2(pose.dir.x, pose.dir.z), Math.acos(clamp(pose.dir.y, -1, 1)), pose.dist, 1, endTarget).add(pivotTo);
+          endTarget.copy(pivotTo);
           // Start- und Zielpose in Kugelkoordinaten um den Blickpunkt: die Fahrt ist ein Orbit
           // um die Fenstermitte, außen um die Wandkante herum, der Blick bleibt auf dem Fenster.
           off.copy(this.camera.position).sub(lookFrom);
