@@ -113,7 +113,12 @@ function initViewer() {
     onAnchor: handleAnchor,
     onHover: handleHover,
   });
-  if (DEBUG) window.fensterViewer = viewer; // Debug-Zugriff: index.html?debug
+  if (DEBUG) {
+    window.fensterViewer = viewer;   // Debug-Zugriff: index.html?debug
+    // Kamera-Regressionssuite aus der Konsole: `await fensterMessung()` (siehe dev/kamera-messung.js).
+    // Wird erst beim Aufruf geladen, im normalen Betrieb nie.
+    window.fensterMessung = async (optionen) => (await import('../dev/kamera-messung.js')).suite(viewer, optionen);
+  }
   viewerInit = viewer.init(MODEL_URL)
     .then(() => {
       els.loading.hidden = true;
