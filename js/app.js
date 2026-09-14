@@ -118,6 +118,7 @@ function initViewer() {
     onHover: handleHover,
     onContextLost: handleContextLost,
     onContextRestored: handleContextRestored,
+    debug: DEBUG,
   });
   if (DEBUG) {
     window.fensterViewer = viewer;   // Debug-Zugriff: index.html?debug

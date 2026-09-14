@@ -500,6 +500,10 @@ const START_STUFE = { 'eigenständig': 0, unbekannt: 2, eingebaut: 2 };
 // @returns {boolean}
 function grafikName(gl) {
   try {
+    // Firefox nennt den Chip direkt in RENDERER und warnt vor der alten Erweiterung (wird dort
+    // entfernt); Chrome und Safari melden dort nur "WebKit WebGL" und brauchen sie weiterhin.
+    const direkt = String(gl.getParameter(gl.RENDERER) || '');
+    if (direkt && !/^(WebKit WebGL|Mozilla)$/i.test(direkt)) return direkt;
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     if (ext) return String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '');
   } catch (e) { /* manche Browser verschleiern den Wert */ }
@@ -612,8 +616,9 @@ export class WindowViewer {
    * @param {(a: {x:number,y:number,visible:boolean}) => void} [o.onAnchor]
    * @param {() => void} [o.onContextLost]      WebGL-Sitzung weg: Bild bleibt stehen, bis sie zurück ist
    * @param {() => void} [o.onContextRestored]  Sitzung zurück, Viewer hat sich selbst erholt
+   * @param {boolean} [o.debug]  Shader-Diagnose von three einschalten (Konsole); in Produktion aus
    */
-  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {}, onContextLost = () => {}, onContextRestored = () => {} }) {
+  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {}, onContextLost = () => {}, onContextRestored = () => {}, debug = false }) {
     this.canvas = canvas;
     this.stage = stage;
     this.onSelect = onSelect;
@@ -621,6 +626,7 @@ export class WindowViewer {
     this.onAnchor = onAnchor;
     this.onContextLost = onContextLost;
     this.onContextRestored = onContextRestored;
+    this.debug = debug;
     this.kontextVerloren = false;
 
     this.parts = new Map();       // name -> Object3D (Kinder von "Fenster")
@@ -774,6 +780,10 @@ export class WindowViewer {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;   // Schattenkarte nur neu rendern, wenn sich Teile bewegen
     this.renderer = renderer;
+    // Shader-Diagnose (Info-Logs, Fehlermeldungen in der Konsole) nur im Debug-Betrieb: three
+    // fragt dafür jedes Programm synchron nach Status und Log, und der HLSL-Übersetzer unter
+    // Windows legt Hinweise wie X4122 (Konstantenfaltung) ins Log, die three als Warnung ausgibt.
+    renderer.debug.checkShaderErrors = this.debug;
 
     // Startstufe absenken, wenn die Grafik eingebaut ist. Muss vor dem Aufbau des Composers
     // stehen: die Mehrfachabtastung wird beim Anlegen des Renderziels festgelegt.
@@ -1258,17 +1268,18 @@ export class WindowViewer {
 
     this.bindPointer();
 
-    // Shader vorkompilieren, damit der erste sichtbare Frame nicht ruckelt.
-    // Der Composer rendert in ein Rendertarget, also gegen dieses kompilieren.
-    if (typeof renderer.compileAsync === 'function') {
-      try {
-        renderer.setRenderTarget(composer.renderTarget1);
-        await renderer.compileAsync(scene, camera);
-      } catch (_) {
-        /* Fallback: normaler Render kompiliert synchron */
-      } finally {
-        renderer.setRenderTarget(null);
-      }
+    // Shader vorkompilieren, damit der erste sichtbare Frame nicht ruckelt. Der Composer rendert
+    // in ein Rendertarget, also gegen dieses kompilieren. compileAsync holt sich die Erweiterung
+    // über extensions.get(), das ohne sie eine Warnung ausgibt (Firefox); has() ist still, darum
+    // vorher prüfen und ohne Erweiterung synchron kompilieren.
+    try {
+      renderer.setRenderTarget(composer.renderTarget1);
+      if (renderer.extensions.has('KHR_parallel_shader_compile')) await renderer.compileAsync(scene, camera);
+      else renderer.compile(scene, camera);
+    } catch (_) {
+      /* Fallback: normaler Render kompiliert synchron */
+    } finally {
+      renderer.setRenderTarget(null);
     }
     const griff = this.parts.get('Griff');
     outline.selectedObjects = griff ? [griff] : [];
