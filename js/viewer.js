@@ -1309,12 +1309,22 @@ export class WindowViewer {
   // Umgebungsbeleuchtung (PMREM aus dem RoomEnvironment) berechnen: beim Aufbau in init und
   // nach Kontextverlust, weil die alte Textur mit der GPU-Sitzung verloren ist.
   erneuereUmgebung() {
+    // three's PMREMGGXConvolution-Shader legt unter Windows (ANGLE, HLSL-Übersetzer) einen
+    // Hinweis zur Konstantenfaltung (X4122) ins Programm-Log, den three bei eingeschalteter
+    // Diagnose als Warnung ausgibt. Für diesen fremden Shader die Diagnose kurz aus; unsere
+    // Materialien bleiben geprüft.
+    const diagnose = this.renderer.debug.checkShaderErrors;
+    this.renderer.debug.checkShaderErrors = false;
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     const room = new RoomEnvironment();
     const alt = this.scene.environment;
-    this.scene.environment = pmrem.fromScene(room, 0.04).texture;
-    room.dispose();
-    pmrem.dispose();
+    try {
+      this.scene.environment = pmrem.fromScene(room, 0.04).texture;
+    } finally {
+      this.renderer.debug.checkShaderErrors = diagnose;
+      room.dispose();
+      pmrem.dispose();
+    }
     if (alt) alt.dispose();
   }
 
