@@ -1,8 +1,9 @@
 // =====================================================================
-// viewer.js – three.js Fenster-Viewer (Explosion View Demo)
-// Lädt fenster.glb, rendert mit Umgebungslicht + Outline-Highlight,
-// Raycast auf hoverbare Bauteile, Intro-/Explosionsanimation und
-// Tooltip-Anker in Bildschirmkoordinaten. Rendert nur bei Änderungen.
+// viewer.js – three.js Viewer für Fenster und Türen (Explosion View Demo)
+// Lädt das GLB des gewählten Modells (modelle.js), rendert mit Umgebungslicht + Outline-
+// Highlight, Raycast auf hoverbare Bauteile, Intro-/Explosionsanimation und Tooltip-Anker in
+// Bildschirmkoordinaten. Rendert nur bei Änderungen. Alles Modellspezifische (Node-Namen,
+// Versätze, Texte, ob es Kippen und Griffdrehung gibt) kommt aus dem Modelleintrag.
 // =====================================================================
 
 import * as THREE from 'three';
@@ -16,288 +17,18 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { MODELLE, MOUNT_OFFSETS, MOUNT_INTRO_DELAY, SHOP_BASE } from './modelle.js';
 
-// Dummy-Shop. Kategorie-URLs sind Platzhalter.
-// Kein echter Shop hinterlegt: die Links sind Anker, damit im Prototyp nichts ins Leere führt.
-export const SHOP_BASE = '#';
+// Bauteil-Texte, Reihenfolge, Explosionsversätze und Namen je Modell: siehe modelle.js.
 
-// Texte überschreiben die Platzhalter aus dem GLB (userData.label / .info).
-// `hover` überschreibt userData.hover (die Dichtung ist im GLB nicht hoverbar,
-// soll hier aber anklickbar sein). Fehlt ein Eintrag, gilt userData.
-export const PART_META = {
-  Griff: {
-    label: 'Fenstergriff',
-    info: 'Aluminium, Dreh-Kipp-Griff, Vierkantstift 7 mm',
-    category: 'griffe',
-    categoryLabel: 'Alle Fenstergriffe',
-  },
-  Glas: {
-    label: 'Verglasung',
-    info: 'Isolierglas 24 mm, 2-fach, Ug 1,1 W/m²K',
-    category: 'verglasung',
-    categoryLabel: 'Alle Verglasungen',
-  },
-  Dichtung: {
-    hover: true,
-    label: 'Glasdichtung',
-    info: 'EPDM-Glasdichtung, schwarz, für 24 mm Isolierglas',
-    category: 'dichtungen',
-    categoryLabel: 'Alle Dichtungen',
-  },
-  Anschlagdichtung: {
-    label: 'Anschlagdichtung',
-    info: 'Flügeldichtung am Überschlag, EPDM, umlaufend',
-    category: 'dichtungen',
-    categoryLabel: 'Alle Dichtungen',
-  },
-  Falzdichtung: {
-    label: 'Falzdichtung',
-    info: 'Äußere Falzdichtung am Flügel, EPDM, schließt die Falzluft zur Außenseite',
-    category: 'dichtungen',
-    categoryLabel: 'Alle Dichtungen',
-  },
-  Fensterbank_aussen: {
-    label: 'Außenfensterbank',
-    info: 'Aluminium, weiß pulverbeschichtet, 1,5 mm Blech, 6 Grad Gefälle, 40 mm Tropfkante mit Haken',
-    category: 'fensterbaenke',
-    categoryLabel: 'Alle Fensterbänke',
-  },
-  Glasleiste: {
-    label: 'Glasleiste',
-    info: 'Glashalteleiste innen, vier Teile auf Gehrung, 20 mm Ansichtsbreite',
-    category: 'glasleisten',
-    categoryLabel: 'Alle Glasleisten',
-  },
-  Band_oben: {
-    label: 'Scherenlager oben',
-    info: 'Dreh-Kipp-Beschlag, Scherenlager mit Abdeckkappen, Kunststoff weiß',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Band_unten: {
-    label: 'Ecklager unten',
-    info: 'Dreh-Kipp-Beschlag, Ecklager mit Abdeckkappen, Kunststoff weiß',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Band_oben_Fluegel: {
-    label: 'Scherenlagerkappe Flügel oben',
-    info: 'Flügelseitige Abdeckkappe am Scherenlager, schwenkt und kippt mit dem Flügel',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Band_unten_Fluegel: {
-    label: 'Ecklagerkappe Flügel unten',
-    info: 'Flügelseitige Abdeckkappe am Ecklager, Gegenstück zum Ecklager am Blendrahmen',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Anschlussfuge: {
-    label: 'Anschlussfuge',
-    info: 'Silikonfuge zwischen Blendrahmen und Laibung',
-    category: 'dichtmassen',
-    categoryLabel: 'Alle Dichtmassen',
-  },
-  // Beschlag im Falz (sichtbar bei geöffnetem Flügel und in der Explosion)
-  Getriebe: {
-    label: 'Getriebe',
-    info: 'Dreh-Kipp-Getriebe im Flügelfalz, Vierkant 7 mm, Dornmaß 15 mm',
-    category: 'getriebe',
-    categoryLabel: 'Alle Getriebe',
-  },
-  Treibstange: {
-    label: 'Treibstange',
-    info: 'Treibstangen im Flügelfalz, Griffseite, oben und unten',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Beschlagteile',
-  },
-  Eckumlenkung_oben: {
-    label: 'Eckumlenkung oben',
-    info: 'Eckumlenkung Flügelecke oben, Griffseite',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Beschlagteile',
-  },
-  Eckumlenkung_unten: {
-    label: 'Eckumlenkung unten',
-    info: 'Eckumlenkung Flügelecke unten, Griffseite',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Beschlagteile',
-  },
-  Schliesszapfen: {
-    label: 'Schließzapfen',
-    info: 'Pilzkopfzapfen auf den Treibstangen, einbruchhemmend',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Schließzapfen',
-  },
-  Fehlbedienungssperre: {
-    label: 'Fehlbedienungssperre',
-    info: 'Sperrt den Griff gegen Fehlbedienung bei geöffnetem Flügel',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Beschlagteile',
-  },
-  Fluegelheber: {
-    label: 'Flügelheber',
-    info: 'Hebt den Flügel beim Schließen an, unten Griffseite',
-    category: 'beschlagteile',
-    categoryLabel: 'Alle Beschlagteile',
-  },
-  Schere: {
-    label: 'Ausstellschere',
-    info: 'Ausstellschere oben Bandseite, begrenzt die Kippstellung',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Eckband: {
-    label: 'Eckband',
-    info: 'Eckbandwinkel unten Bandseite, Gegenstück zum Ecklager',
-    category: 'beschlaege',
-    categoryLabel: 'Alle Beschläge',
-  },
-  Schliessblech_rechts: {
-    label: 'Schließbleche Griffseite',
-    info: 'Schließstücke im Blendrahmenfalz, Griffseite',
-    category: 'schliessstuecke',
-    categoryLabel: 'Alle Schließstücke',
-  },
-  Schliessblech_oben: {
-    label: 'Schließblech oben',
-    info: 'Schließstück im Blendrahmenfalz, oben',
-    category: 'schliessstuecke',
-    categoryLabel: 'Alle Schließstücke',
-  },
-  Schliessblech_unten: {
-    label: 'Schließblech unten',
-    info: 'Schließstück im Blendrahmenfalz, unten',
-    category: 'schliessstuecke',
-    categoryLabel: 'Alle Schließstücke',
-  },
-  Fluegel: {
-    label: 'Flügelrahmen',
-    info: 'Dreh-Kipp-Flügel, 85 mm Ansichtsbreite, 70 mm Bautiefe',
-    category: 'fluegelrahmen',
-    categoryLabel: 'Alle Flügelrahmen',
-  },
-  Rahmen_links: {
-    label: 'Blendrahmen links',
-    info: 'Kunststoffprofil, 70 mm Ansichtsbreite, 80 mm Bautiefe',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-  Rahmen_rechts: {
-    label: 'Blendrahmen rechts',
-    info: 'Kunststoffprofil, 70 mm Ansichtsbreite, 80 mm Bautiefe',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-  Rahmen_oben: {
-    label: 'Blendrahmen oben',
-    info: 'Kunststoffprofil, 70 mm Ansichtsbreite, 80 mm Bautiefe',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-  Rahmen_unten: {
-    label: 'Blendrahmen unten',
-    info: 'Kunststoffprofil, 70 mm Ansichtsbreite, 80 mm Bautiefe',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-};
-
-// Gruppenüberschriften für die Bauteil-Liste, nach Shop-Kategorie.
-const CATEGORY_GROUPS = {
-  griffe: 'Griff und Beschlag', getriebe: 'Griff und Beschlag', beschlagteile: 'Griff und Beschlag',
-  schliessstuecke: 'Griff und Beschlag', beschlaege: 'Griff und Beschlag',
-  verglasung: 'Glas und Dichtungen', glasleisten: 'Glas und Dichtungen', dichtungen: 'Glas und Dichtungen',
-  fluegelrahmen: 'Rahmen', blendrahmen: 'Rahmen', dichtmassen: 'Rahmen', fensterbaenke: 'Rahmen',
-};
-
-// Reihenfolge für die Bauteil-Liste; unbekannte Nodes werden hinten angehängt.
-export const PART_ORDER = [
-  'Griff', 'Getriebe', 'Treibstange', 'Eckumlenkung_oben', 'Eckumlenkung_unten', 'Schliesszapfen',
-  'Fehlbedienungssperre', 'Fluegelheber', 'Schliessblech_rechts', 'Schliessblech_oben', 'Schliessblech_unten',
-  'Band_oben', 'Band_oben_Fluegel', 'Band_unten', 'Band_unten_Fluegel', 'Schere', 'Eckband',
-  'Glas', 'Glasleiste', 'Dichtung', 'Anschlagdichtung', 'Falzdichtung',
-  'Fluegel', 'Rahmen_links', 'Rahmen_rechts', 'Rahmen_oben', 'Rahmen_unten',
-  'Anschlussfuge', 'Fensterbank_aussen',
-];
-
-export function isHoverable(obj) {
-  const meta = PART_META[obj.name];
-  if (meta && typeof meta.hover === 'boolean') return meta.hover;
-  return obj.userData.hover === true;
-}
-
-// Versatz (in Metern, lokal zum Node "Fenster") für Intro- und Explosionsansicht.
-// Zusätzlich werden alle Teile um `explodeLift` nach vorn (+z) geschoben, damit
-// auch der Blendrahmen vor der Innenwand liegt statt in der Laibung zu verschwinden.
-// Ebenen von der Wand in den Raum: Blendrahmen (seitlich auseinander) und Anschlussfuge,
-// Flügel mit Anschlagdichtung und Bändern (zur Bandseite hin), Glasdichtung, Glas,
-// Glasleiste, Griff.
-const EXPLODE_OFFSETS = {
-  Rahmen_links:     [-0.28, 0, 0],
-  Rahmen_rechts:    [ 0.28, 0, 0],
-  Rahmen_oben:      [ 0, 0.28, 0],
-  Rahmen_unten:     [ 0, -0.28, 0],
-  Anschlussfuge:    [ 0, 0, 0.10],
-  // Beide Flügeldichtungen liegen zwischen Flügel und Blendrahmen, also HINTER dem Flügel:
-  // die Falzdichtung tiefer im Falz (zweiter Anschlag), die Anschlagdichtung am Überschlag.
-  // Die Anschlagdichtung stand früher vor dem Flügel (0.42) und fuhr durch ihn hindurch.
-  Falzdichtung:     [ 0, 0, 0.16],
-  Anschlagdichtung: [ 0, 0, 0.22],
-  Fluegel:          [ 0, 0, 0.3],
-  Band_oben:        [-0.5, 0, 0.3],
-  Band_unten:       [-0.5, 0, 0.3],
-  Dichtung:         [ 0, 0, 0.55],
-  Glas:             [ 0, 0, 0.75],
-  Glasleiste:       [ 0, 0, 0.9],
-  Griff:            [ 0.16, 0, 1.05],
-};
-// Bauteile, die zum Bau gehören, nicht zur Baugruppe: anklickbar und im Shop, aber sie
-// stehen in Intro und Explosion still und zählen nicht zur Fenster-Box (die bestimmt
-// Home-Blickpunkt, Explosionshub und Kameragrenzen). Die Außenfensterbank hängt 6 cm unter
-// dem Rahmen und ragt 17 cm nach außen — in der Box hätte sie den Hub um ebenso viel vergrößert.
-const STATIC_PARTS = new Set(['Fensterbank_aussen']);
-// Teile ohne eigenen Eintrag bekommen ihren Versatz aus der Custom Property `mount`:
-// sash = fährt mit dem Flügel, frame = spreizt mit der jeweiligen Rahmenseite,
-// hinge = schwenkt zur Bandseite aus.
-const MOUNT_OFFSETS = {
-  sash: [0, 0, 0.3],
-  sashHardware: [0.45, 0, 0.3],   // Beschlag aus dem Flügelfalz seitlich neben den Flügel legen
-  hinge: [0.5, 0, 0.3],           // Bandkappen (Ecklager, Scherenlager)
-  hingeHardware: [0.5, 0, 0.5],   // Stahlteile der Bandseite (Eckband, Schere) eine Ebene davor
-  frameSpread: 0.28,
-};
-const HARDWARE_MATERIAL = 'Beschlag_Stahl';
-// Start-Verzögerung je Bauteil in der Intro-Animation (Anteil der Gesamtdauer).
-const INTRO_DELAY = {
-  Rahmen_links: 0, Rahmen_rechts: 0, Rahmen_oben: 0.06, Rahmen_unten: 0.06, Anschlussfuge: 0.04,
-  Falzdichtung: 0.12, Anschlagdichtung: 0.16,
-  Fluegel: 0.2, Band_oben: 0.25, Band_unten: 0.25,
-  Dichtung: 0.32, Glas: 0.38, Glasleiste: 0.43, Griff: 0.5,
-};
-const MOUNT_INTRO_DELAY = { sash: 0.22, frame: 0.03, hinge: 0.25 };
-
-// Dünne Teile, die im Modell bündig auf einer anderen Fläche liegen: minimal versetzen,
-// sonst flackern sie (Z-Fighting) und der Raycast trifft zufällig das Teil dahinter. Meter.
-const FLUSH_NUDGE = {
-  Anschlagdichtung: [0, 0, 0.0008],        // bündig auf dem Flügelüberschlag (seit dem Modell vom 13.09. am Flügel montiert)
-  Schliessblech_rechts: [-0.0008, 0, 0],   // bündig auf der Falzfläche des Blendrahmens
-  Schliessblech_oben: [0, -0.0008, 0],
-  Schliessblech_unten: [0, 0.0008, 0],
-};
-
-// Flügel: Drehstellung um die senkrechte Bandachse (aus Band_oben/Band_unten abgeleitet)
-// oder Kippstellung um die waagerechte Achse am Flügelfuß. Vorher dreht jeweils der Griff:
-// 90 Grad für Drehen, 180 Grad (Griff zeigt nach oben) für Kippen, bei Griff rechts im
-// Uhrzeigersinn vom Raum aus gesehen. Alles prozedural in three.js, nichts aus dem GLB.
-const OPEN_ANGLE = THREE.MathUtils.degToRad(32);
+// Flügel: Drehstellung um die senkrechte Bandachse (aus den Bandteilen abgeleitet) oder
+// Kippstellung um die waagerechte Achse am Flügelfuß. Vorher dreht jeweils der Griff. Winkel,
+// Namen und ob Kippen möglich ist, stehen im Modelleintrag (modelle.js). Alles prozedural in
+// three.js, nichts aus dem GLB.
 const OPEN_DURATION = 900;          // ms, Schwenk in die Drehstellung
 const TILT_GAP = 0.14;              // m, Spaltmaß oben in Kippstellung; der Winkel folgt aus der Flügelhöhe
 const TILT_DURATION = 700;          // ms
 const HANDLE_TURN_DURATION = 350;   // ms je 90 Grad Griffdrehung
-const HANDLE_NAME = 'Griff';
-const HANDLE_ROSETTE = 'Griff_Rosette';   // optionales eigenes Objekt: feste Rosette, dreht nicht mit
-const STAY_NAME = 'Schere';               // Ausstellschere: schwenkt beim Kippen um ihr rahmenseitiges Ende
 const UP = new THREE.Vector3(0, 1, 0);
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
@@ -617,8 +348,11 @@ export class WindowViewer {
    * @param {() => void} [o.onContextLost]      WebGL-Sitzung weg: Bild bleibt stehen, bis sie zurück ist
    * @param {() => void} [o.onContextRestored]  Sitzung zurück, Viewer hat sich selbst erholt
    * @param {boolean} [o.debug]  Shader-Diagnose von three einschalten (Konsole); in Produktion aus
+   * @param {object} [o.modell]  Modelleintrag aus modelle.js (Standard: Fenster)
+   * @param {number|null} [o.startStufe]  Qualitätsstufe eines vorigen Viewers übernehmen, dann
+   *   entfällt die Einmessung (Modellwechsel im laufenden Betrieb)
    */
-  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {}, onContextLost = () => {}, onContextRestored = () => {}, debug = false }) {
+  constructor({ canvas, stage, onSelect = () => {}, onHover = () => {}, onAnchor = () => {}, onContextLost = () => {}, onContextRestored = () => {}, debug = false, modell = MODELLE.fenster, startStufe = null }) {
     this.canvas = canvas;
     this.stage = stage;
     this.onSelect = onSelect;
@@ -627,6 +361,10 @@ export class WindowViewer {
     this.onContextLost = onContextLost;
     this.onContextRestored = onContextRestored;
     this.debug = debug;
+    this.modell = modell;
+    this.openAngle = THREE.MathUtils.degToRad(modell.fluegel.winkel);
+    this.kannKippen = !!modell.fluegel.kippen;
+    this.startStufeVorgabe = startStufe;
     this.kontextVerloren = false;
 
     this.parts = new Map();       // name -> Object3D (Kinder von "Fenster")
@@ -799,7 +537,10 @@ export class WindowViewer {
     // eigene Karte hat, soll dieses Umschalten gar nicht erst erleben. Liegt die Erkennung
     // daneben, fängt die Messung es über die Leiter wieder ein.
     this.grafikKlasse = grafikKlasse(renderer.getContext());
-    this.startStufe = START_STUFE[this.grafikKlasse] ?? 1;
+    this.startStufe = this.startStufeVorgabe ?? START_STUFE[this.grafikKlasse] ?? 1;
+    // Übernommene Stufe: nicht noch einmal einmessen. Der Wechsel zwischen den Modellen läuft
+    // ohne Scan-Overlay, ein blindes Intro wäre zu sehen.
+    if (this.startStufeVorgabe != null) this.kalibriert = true;
     const s = STUFEN[this.startStufe];
     // Die Tabelle bestimmt das Pixelverhältnis allein. Wirksam wird ohnehin nur
     // min(devicePixelRatio, maxPixelRatio), ein Bildschirm ohne hohe Punktdichte bekommt also
@@ -948,23 +689,32 @@ export class WindowViewer {
 
     // Modell
     const gltf = await preloadModel(url);
-    const root = gltf.scene;
-    const fenster = root.getObjectByName('Fenster');
-    if (!fenster) throw new Error('Node "Fenster" wurde im Modell nicht gefunden.');
+    // Das geladene GLB ist ein geteilter Zwischenspeicher (preloadModel): jeder Viewer arbeitet
+    // auf einer eigenen Kopie des Szenengraphen. Sonst stünden beim nächsten Viewer desselben
+    // Modells die Teile schon in der letzten Pose, die Millimeterversätze wären doppelt und die
+    // zerlegte Wand samt Ersatzwand läge zweimal in der Szene. Geometrien und Materialien teilt
+    // die Kopie; was verändert wird (Wandfarbe, Kunststoff, Glas, Fensterbank), wird vorher geklont.
+    const root = gltf.scene.clone(true);
+    const modell = this.modell;
+    const baugruppe = root.getObjectByName(modell.root);
+    if (!baugruppe) throw new Error(`Node "${modell.root}" wurde im Modell nicht gefunden.`);
     this.root = root;
-    this.fenster = fenster;
+    this.baugruppe = baugruppe;
 
     root.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true;
         o.receiveShadow = true;
         // Wand nur einen Hauch unter Reinweiß; die Trennung zu den Profilen leistet die AO.
-        if (o.material && /^Wand/.test(o.material.name)) o.material.color.multiplyScalar(0.96);
+        if (o.material && /^Wand/.test(o.material.name)) {
+          o.material = o.material.clone();   // geteiltes Material des Zwischenspeichers nicht abdunkeln
+          o.material.color.multiplyScalar(0.96);
+        }
       }
     });
     // Fensterbank als eigenes Dekor: matt, einen Hauch wärmer und dunkler als das PVC und mit
     // feiner Struktur, sonst verschmilzt sie von unten mit dem Blendrahmen (Weiß auf Weiß).
-    const sillNode = root.getObjectByName('Fensterbank');
+    const sillNode = modell.fensterbank ? root.getObjectByName(modell.fensterbank) : null;
     if (sillNode) {
       sillNode.traverse((o) => {
         if (!o.isMesh) return;
@@ -972,18 +722,18 @@ export class WindowViewer {
         planarUVs(o, SILL_GRAIN_PER_M);
       });
     }
-    for (const child of fenster.children) {
-      const nudge = FLUSH_NUDGE[child.name];
+    for (const child of baugruppe.children) {
+      const nudge = modell.buendig[child.name];
       if (nudge) child.position.add(new THREE.Vector3(...nudge));
       child.userData.basePosition = child.position.clone();
       child.userData.baseQuaternion = child.quaternion.clone();   // im Modell gesetzte Drehung bleibt erhalten
       // Eigene Material-Instanz je Bauteil, damit Hover/Auswahl nicht auf geteilte Materialien wirkt.
       child.traverse((o) => { if (o.isMesh) o.material = upgradePlastic(o.material.clone()); });
-      if (child.name === HANDLE_ROSETTE) {
-        // Feste Rosette des Griffs: gehört für Hover, Auswahl und Explosion zum Teil "Griff",
+      if (child.name === modell.griff.rosette) {
+        // Feste Rosette des Griffs: gehört für Hover, Auswahl und Explosion zum Griff,
         // bewegt sich mit dem Flügel, dreht aber nicht mit der Griffstange.
         child.userData.hover = false;
-        this.attached.push({ obj: child, host: HANDLE_NAME });
+        this.attached.push({ obj: child, host: modell.griff.name });
         continue;
       }
       this.parts.set(child.name, child);
@@ -1000,18 +750,24 @@ export class WindowViewer {
     scene.add(root);
 
     // Maße aus dem Modell ableiten (Fenster + Wand), nicht hart kodieren. Die Fenster-Box
-    // umfasst nur die Baugruppe, kein Zubehör am Bau (STATIC_PARTS).
+    // umfasst nur die Baugruppe, kein Zubehör am Bau (modell.statisch).
     // expandByObject rechnet die Weltmatrix nur des Teils selbst neu, die des Elternknotens
     // "Fenster" (steht 1,6 m hoch) muss vorher stimmen.
-    fenster.updateWorldMatrix(true, false);
+    baugruppe.updateWorldMatrix(true, false);
     this.box = new THREE.Box3();
-    for (const [name, obj] of this.parts) if (!STATIC_PARTS.has(name)) this.box.expandByObject(obj);
+    for (const [name, obj] of this.parts) if (!modell.statisch.has(name)) this.box.expandByObject(obj);
     for (const { obj } of this.attached) this.box.expandByObject(obj);
     this.box.getCenter(this.homeTarget);
     this.pivot.copy(this.homeTarget);
     const size = this.box.getSize(new THREE.Vector3());
-    const wand = root.getObjectByName('Wand');
-    const wandBox = new THREE.Box3().setFromObject(wand || root);
+    // Ohne Wand im GLB steht eine verputzte Ersatzwand um die Baugruppe (Türmodell): Laibung,
+    // Kameragrenzen, Himmel und Außenfahrt brauchen sie wie beim Fenster.
+    let wand = root.getObjectByName(modell.wand);
+    if (!wand) {
+      wand = makeErsatzwand(this.box);
+      root.add(wand);
+    }
+    const wandBox = new THREE.Box3().setFromObject(wand);
     const wandSize = wandBox.getSize(new THREE.Vector3());
     this.wallFaceZ = wandBox.max.z;
     this.wallOuterZ = wandBox.min.z;
@@ -1026,9 +782,9 @@ export class WindowViewer {
       const c = pb.getCenter(new THREE.Vector3()).sub(winCenter);
       obj.userData.partBox = pb;
       let hardware = false;
-      obj.traverse((o) => { if (o.isMesh && o.material && o.material.name === HARDWARE_MATERIAL) hardware = true; });
-      obj.userData.explodeOffset = EXPLODE_OFFSETS[name] || mountOffset(obj.userData.mount, c, hardware);
-      obj.userData.introDelay = INTRO_DELAY[name] ?? MOUNT_INTRO_DELAY[obj.userData.mount] ?? 0;
+      obj.traverse((o) => { if (o.isMesh && o.material && modell.hardwareMaterialien.includes(o.material.name)) hardware = true; });
+      obj.userData.explodeOffset = modell.versatz[name] || mountOffset(obj.userData.mount, c, hardware);
+      obj.userData.introDelay = modell.introVerzoegerung[name] ?? MOUNT_INTRO_DELAY[obj.userData.mount] ?? 0;
     }
     for (const { obj, host } of this.attached) {
       const h = this.parts.get(host);
@@ -1038,7 +794,7 @@ export class WindowViewer {
     // Bandachse: senkrecht durch die gemeinsame Mitte aller Bandteile (Band_oben*, Band_unten*,
     // rahmen- und flügelseitige Hälften), lokal zu "Fenster". Trägt ein Bandteil die Custom
     // Property `pivot` [x, y, z], gilt stattdessen der Mittelwert dieser Angaben.
-    const bands = [...this.parts.values()].filter((o) => /^Band_(oben|unten)/.test(o.name));
+    const bands = [...this.parts.values()].filter((o) => modell.bandMuster.test(o.name));
     if (bands.length) {
       const pivots = bands.map((o) => o.userData.pivot).filter((p) => Array.isArray(p) && p.length === 3);
       let bc;
@@ -1048,8 +804,8 @@ export class WindowViewer {
         const bb = new THREE.Box3();
         for (const b of bands) bb.union(b.userData.partBox);
         bc = bb.getCenter(new THREE.Vector3());
-        fenster.updateWorldMatrix(true, false);
-        fenster.worldToLocal(bc);
+        baugruppe.updateWorldMatrix(true, false);
+        baugruppe.worldToLocal(bc);
       }
       this.hingeAxis = new THREE.Vector3(bc.x, 0, bc.z);
       this.hingeSide = bc.x < 0 ? -1 : 1;
@@ -1058,31 +814,35 @@ export class WindowViewer {
     // Spaltmaß oben und der Flügelhöhe. Drehpunkt-Verschiebung beim Öffnen: 80 % der
     // Ausladung der freien Kante, so liegt der Beschlag der Griffseite (Treibstange,
     // Getriebe) nah am Drehpunkt und bleibt beim Heranzoomen im Bild.
-    const sash = this.parts.get('Fluegel');
+    const sash = this.parts.get(modell.fluegel.name);
     if (sash && this.hingeAxis) {
       const sb = sash.userData.partBox;
-      const foot = fenster.worldToLocal(new THREE.Vector3(0, sb.min.y + 0.015, 0));
-      this.tiltAxis = new THREE.Vector3(0, foot.y, this.hingeAxis.z);
-      this.tiltAngle = Math.asin(clamp(TILT_GAP / (sb.max.y - sb.min.y), 0, 1));
-      this.openShift = Math.sin(OPEN_ANGLE) * (sb.max.x - sb.min.x) * 0.8;
+      if (this.kannKippen) {
+        const foot = baugruppe.worldToLocal(new THREE.Vector3(0, sb.min.y + 0.015, 0));
+        this.tiltAxis = new THREE.Vector3(0, foot.y, this.hingeAxis.z);
+        this.tiltAngle = Math.asin(clamp(TILT_GAP / (sb.max.y - sb.min.y), 0, 1));
+      }
+      this.openShift = Math.sin(this.openAngle) * (sb.max.x - sb.min.x) * 0.8;
     }
     // Griffdrehung nur, wenn das Modell dafür gebaut ist: eigene Rosette (Griff_Rosette) oder
     // eine Spindel-Angabe (Custom Property `pivot` bzw. Objektursprung auf der Spindel). Sonst
     // bleibt der Griff in Grundstellung, statt ein ungeteiltes Mesh samt Rosette zu verdrehen.
-    const handle = this.parts.get(HANDLE_NAME);
+    const handle = this.parts.get(modell.griff.name);
     if (handle) {
-      const hasRosette = this.attached.some((a) => a.host === HANDLE_NAME);
+      const hasRosette = this.attached.some((a) => a.host === modell.griff.name);
       const p = handle.userData.pivot;
       this.handleReady = hasRosette || (Array.isArray(p) && p.length === 3) || handle.position.lengthSq() > 1e-8;
       if (this.handleReady) {
-        this.handlePivot = deriveHandlePivot(handle, fenster);
-        this.handleSign = this.handlePivot.x > 0 ? -1 : 1;
+        this.handlePivot = deriveHandlePivot(handle, baugruppe);
+        // Drehsinn: aus dem Modelleintrag, sonst aus der Griffseite (Griff rechts dreht im
+        // Uhrzeigersinn vom Raum aus gesehen).
+        this.handleSign = modell.griff.richtung ?? (this.handlePivot.x > 0 ? -1 : 1);
       }
     }
     // Ausstellschere: mit Ursprung am rahmenseitigen Drehpunkt (Scherenlager) und mount sash
     // schwenkt der Arm beim Kippen waagerecht so weit aus, dass sein flügelseitiges Ende der
     // Flügeloberkante folgt (starrer Arm, Ende gleitet entlang des Flügels).
-    const stay = this.parts.get(STAY_NAME);
+    const stay = modell.schere ? this.parts.get(modell.schere) : null;
     if (stay) {
       this.stayReady = stay.position.lengthSq() > 1e-8 && stay.userData.mount === 'sash';
       if (this.stayReady) {
@@ -1096,7 +856,7 @@ export class WindowViewer {
     // Kamera-Framing. Ihr Zentrum ist in der Explosion auch der Drehpunkt der Kamera.
     this.explodedBox = this.box.clone();
     for (const [name, obj] of this.parts) {
-      if (STATIC_PARTS.has(name)) continue;
+      if (modell.statisch.has(name)) continue;
       const off = obj.userData.explodeOffset;
       const pb = obj.userData.partBox.clone();
       pb.translate(new THREE.Vector3(off[0], off[1], off[2] + this.explodeLift));
@@ -1153,7 +913,7 @@ export class WindowViewer {
     // Farbverlauf bleibt an der Wandhöhe verankert, egal wie hoch die Fläche wird.
     let aussenMinZ = wandBox.min.z;
     for (const o of this.parts.values()) aussenMinZ = Math.min(aussenMinZ, o.userData.partBox.min.z);
-    const sill = root.getObjectByName('Fensterbank');
+    const sill = modell.fensterbank ? root.getObjectByName(modell.fensterbank) : null;
     if (sill) aussenMinZ = Math.min(aussenMinZ, new THREE.Box3().setFromObject(sill).min.z);
     const skyZ = aussenMinZ - 0.02;
     const reach = (this.wallFaceZ - skyZ) * 2.3;   // seitlicher Blickversatz bei max. Azimut (rund 66 Grad)
@@ -1281,7 +1041,7 @@ export class WindowViewer {
     } finally {
       renderer.setRenderTarget(null);
     }
-    const griff = this.parts.get('Griff');
+    const griff = this.parts.get(modell.griff.name);
     outline.selectedObjects = griff ? [griff] : [];
     hoverOutline.selectedObjects = griff ? [griff] : [];
     composer.render();
@@ -2062,10 +1822,10 @@ export class WindowViewer {
   // Mehrere Durchgänge, falls die Kamera in zwei Teilen zugleich steckt.
   // @returns {boolean} true, wenn die Kamera verschoben wurde
   keepClear() {
-    if (!this.clearance.length || !this.fenster) return false;
+    if (!this.clearance.length || !this.baugruppe) return false;
     const cam = this.camera.position;
     const t = this.controls.target;
-    this.fenster.updateWorldMatrix(true, true);
+    this.baugruppe.updateWorldMatrix(true, true);
     const back = this._dirTmp2.subVectors(cam, t).normalize();
     let moved = false;
     for (let pass = 0; pass < 3; pass++) {
@@ -2102,7 +1862,7 @@ export class WindowViewer {
     for (let k = 1; k <= RETREAT_SAMPLES; k++) {
       const q = k / RETREAT_SAMPLES;
       stellung(q);
-      this.fenster.updateWorldMatrix(true, true);
+      this.baugruppe.updateWorldMatrix(true, true);
       const dp = this._vTmp2.copy(drehpunkt(q)).sub(p0);
       pos.copy(cam);
       if (this.focused || dp.dot(back) > 0) pos.add(dp);
@@ -2112,7 +1872,7 @@ export class WindowViewer {
       }
     }
     stellung(0);
-    this.fenster.updateWorldMatrix(true, true);
+    this.baugruppe.updateWorldMatrix(true, true);
     if (weg < 0.005) return 0;
     const dauer = clamp(frist - 40, 120, RETREAT_MS);
     let bisher = 0;
@@ -2335,7 +2095,7 @@ export class WindowViewer {
   // Die Achsen wandern mit dem Hub mit.
   applyExplode() {
     const lift = this.explodeLift * this.liftFactor;
-    const openAngle = this.hingeSide * OPEN_ANGLE * this.openFactor;
+    const openAngle = this.hingeSide * this.openAngle * this.openFactor;
     const tiltAngle = this.tiltAngle * this.tiltFactor;
     const qOpen = this.hingeAxis && openAngle !== 0 ? this._qTmp.setFromAxisAngle(UP, openAngle) : null;
     const qTilt = this.tiltAxis && tiltAngle !== 0 ? this._qTmp2.setFromAxisAngle(X_AXIS, tiltAngle) : null;
@@ -2345,7 +2105,7 @@ export class WindowViewer {
     const placeObj = (name, obj, role) => {
       const base = obj.userData.basePosition;
       if (!base) return;
-      if (STATIC_PARTS.has(name)) {
+      if (this.modell.statisch.has(name)) {
         obj.position.copy(base);
         obj.quaternion.copy(obj.userData.baseQuaternion || IDENTITY_Q);
         return;
@@ -2379,7 +2139,8 @@ export class WindowViewer {
       if (qOpen) rotateAbout(obj, qOpen, axis.copy(this.hingeAxis).setZ(this.hingeAxis.z + lift));
       if (qTilt) rotateAbout(obj, qTilt, axis.copy(this.tiltAxis).setZ(this.tiltAxis.z + lift));
     };
-    for (const [name, obj] of this.parts) placeObj(name, obj, name === HANDLE_NAME ? 'handle' : name === STAY_NAME ? 'stay' : '');
+    const griffName = this.modell.griff.name, schereName = this.modell.schere;
+    for (const [name, obj] of this.parts) placeObj(name, obj, name === griffName ? 'handle' : name === schereName ? 'stay' : '');
     for (const { obj, host } of this.attached) placeObj(host, obj, '');
     this.renderer.shadowMap.needsUpdate = true;
     this.needsRender = true;
@@ -2393,6 +2154,7 @@ export class WindowViewer {
   // @returns {number} Gesamtdauer bis zur Endstellung in ms (inkl. Wartezeit)
   setSash(mode, delay = 0) {
     if (this.introPlaying || !this.hingeAxis) return 0;
+    if (mode === 'tilt' && !this.kannKippen) return 0;
     if (mode === this.sashMode && !this.hasTween('sash')) return 0;
     if (mode !== 'closed' && this.exploded) {
       this.setExploded(false);
@@ -2406,7 +2168,11 @@ export class WindowViewer {
     const o0 = this.openFactor, t0 = this.tiltFactor, h0 = this.handleAngle;
     const oT = mode === 'open' ? 1 : 0;
     const tT = mode === 'tilt' ? 1 : 0;
-    const hT = !this.handleReady ? 0 : mode === 'open' ? Math.PI / 2 : mode === 'tilt' ? Math.PI : 0;
+    // Griffdrehung je Stellung aus dem Modelleintrag (Grad): Fenster 90/180, Türdrücker 38/–.
+    const g = this.modell.griff;
+    const hT = !this.handleReady ? 0
+      : mode === 'open' ? THREE.MathUtils.degToRad(g.drehen || 0)
+        : mode === 'tilt' ? THREE.MathUtils.degToRad(g.kippen || 0) : 0;
     // Schritte nacheinander: `key` ist der animierte Wert, `moves` markiert Flügelbewegung.
     const steps = [];
     if (o0 > 0 && oT === 0) steps.push({ key: 'openFactor', from: o0, to: 0, dur: OPEN_DURATION * o0, moves: true });
@@ -2862,13 +2628,13 @@ export class WindowViewer {
     const hits = this.raycaster.intersectObject(this.root, true);
     if (!hits.length) return null;
     const part = this.partOf(hits[0].object);
-    if (!part || !isHoverable(part)) return null;
+    if (!part || !this.isHoverable(part)) return null;
     return { part, point: hits[0].point };
   }
 
   partOf(obj) {
     let o = obj;
-    while (o && o !== this.fenster && o !== this.root) {
+    while (o && o !== this.baugruppe && o !== this.root) {
       if (this.parts.has(o.name)) return o;
       const att = this.attached.find((a) => a.obj === o);
       if (att) return this.parts.get(att.host) || null;
@@ -2952,7 +2718,7 @@ export class WindowViewer {
 
   focusByName(name) {
     const part = this.parts.get(name);
-    if (part && isHoverable(part)) { this.select(part); this.focusPart(part); }
+    if (part && this.isHoverable(part)) { this.select(part); this.focusPart(part); }
   }
 
   /** @returns {boolean} true, wenn sich der Hover-Zustand geändert hat */
@@ -3008,7 +2774,7 @@ export class WindowViewer {
 
   selectByName(name) {
     const part = this.parts.get(name);
-    if (!part || !isHoverable(part)) return;
+    if (!part || !this.isHoverable(part)) return;
     this.select(part);
   }
 
@@ -3034,7 +2800,7 @@ export class WindowViewer {
   }
 
   describe(part) {
-    const meta = PART_META[part.name] || {};
+    const meta = this.modell.teile[part.name] || {};
     const category = meta.category || 'ersatzteile';
     return {
       name: part.name,
@@ -3042,16 +2808,24 @@ export class WindowViewer {
       info: meta.info || part.userData.info || '',
       category,
       categoryLabel: meta.categoryLabel || 'Passende Ersatzteile',
-      group: CATEGORY_GROUPS[category] || 'Weitere Teile',
+      group: this.modell.gruppen[category] || 'Weitere Teile',
       url: SHOP_BASE + category,
     };
   }
 
+  // Anklickbar ist, was der Modelleintrag (`hover`) oder sonst das GLB (userData.hover) so nennt.
+  isHoverable(obj) {
+    const meta = this.modell.teile[obj.name];
+    if (meta && typeof meta.hover === 'boolean') return meta.hover;
+    return obj.userData.hover === true;
+  }
+
   // Alle anklickbaren Bauteile, die das geladene Modell tatsächlich enthält.
   getParts() {
-    const idx = (n) => { const i = PART_ORDER.indexOf(n); return i < 0 ? PART_ORDER.length : i; };
-    return this.fenster.children
-      .filter((o) => isHoverable(o))
+    const reihe = this.modell.reihenfolge;
+    const idx = (n) => { const i = reihe.indexOf(n); return i < 0 ? reihe.length : i; };
+    return this.baugruppe.children
+      .filter((o) => this.isHoverable(o))
       .sort((a, b) => idx(a.name) - idx(b.name) || a.name.localeCompare(b.name))
       .map((o) => this.describe(o));
   }
@@ -3189,6 +2963,39 @@ function mountOffset(mount, c, hardware = false) {
     return Math.abs(c.x) > Math.abs(c.y) ? [Math.sign(c.x) * s, 0, 0] : [0, Math.sign(c.y) * s, 0];
   }
   return [0, 0, 0];
+}
+
+// Ersatzwand für Modelle ohne Node "Wand": zwei Pfeiler und ein Sturz aus mattem Putz um die
+// Öffnung, die die Baugruppe mit 1 cm Fuge freilässt. Maße wie die Wand des Fenstermodells
+// (46 cm dick, Innenfläche bei z = 0.26, Außenfläche bei −0.20), damit Laibung, Kameragrenzen
+// und die Fahrt um die Wandkante unverändert funktionieren. Steht auf der Unterkante der
+// Baugruppe (Tür: Schwelle bei y = 0), die Öffnung reicht bis zum Boden.
+// @param {THREE.Box3} box Baugruppe (Welt)
+function makeErsatzwand(box) {
+  const fuge = 0.01;
+  const innenZ = 0.26, aussenZ = -0.20;
+  const tiefe = innenZ - aussenZ, mitteZ = (innenZ + aussenZ) / 2;
+  const mitteX = (box.min.x + box.max.x) / 2;
+  const halb = Math.max(3.4, box.max.x - box.min.x + 2.4) / 2;
+  const boden = box.min.y;
+  const decke = Math.max(boden + 2.6, box.max.y + 0.4);
+  const links = box.min.x - fuge, rechts = box.max.x + fuge, oben = box.max.y + fuge;
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf0ece5, roughness: 0.92, metalness: 0 });
+  mat.name = 'Wand_innen';
+  const wand = new THREE.Group();
+  wand.name = 'Wand';
+  const quader = (name, x0, x1, y0, y1) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, tiefe), mat);
+    m.name = name;
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, mitteZ);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    wand.add(m);
+  };
+  quader('Wand_links', mitteX - halb, links, boden, decke);
+  quader('Wand_rechts', rechts, mitteX + halb, boden, decke);
+  quader('Wand_sturz', links, rechts, oben, decke);
+  return wand;
 }
 
 // Öffnung in der Wand als Box3 (x/y), abgeleitet aus den Wand-Vertices nahe den Fensterkanten:

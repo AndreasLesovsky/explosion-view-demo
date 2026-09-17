@@ -107,7 +107,7 @@ export function messgeschirr(v) {
     aktion();
     for (let f = 0; f < Math.min(frames, MAX_FRAMES); f++) {
       M.frame();
-      v.fenster.updateWorldMatrix(true, true);
+      v.baugruppe.updateWorldMatrix(true, true);
       if (!Number.isFinite(cam.x + cam.y + cam.z + t.x + t.y + t.z)) { nan = true; break; }
       const d = cam.clone().sub(prev), len = d.length();
       if (!v.tweens.length && endeBei < 0) endeBei = f;

@@ -66,27 +66,40 @@
     <!-- Screen 1: Hero -->
     <section class="screen screen--hero is-active" id="screen-hero" aria-labelledby="hero-title">
       <div class="hero">
-        <p class="eyebrow">Ersatzteile für Ihr Fenster</p>
+        <p class="eyebrow">Ersatzteile für Fenster und Türen</p>
         <h1 id="hero-title">
-          Fenster scannen.<br />Bauteil finden.<br />Direkt bestellen.
+          Fenster oder Tür scannen.<br />Bauteil finden.<br />Direkt bestellen.
         </h1>
         <p class="lead">
-          Scannen Sie den QR-Code auf Ihrem Fenster. Sie erhalten ein
-          interaktives 3D-Modell, in dem Sie jedes Bauteil antippen und
-          passende Ersatzteile im Shop finden.
+          Scannen Sie den QR-Code auf Ihrem Fenster oder Ihrer Haustür. Sie
+          erhalten ein interaktives 3D-Modell, in dem Sie jedes Bauteil antippen
+          und passende Ersatzteile im Shop finden.
         </p>
-        <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" rx="1.2" />
-            <rect x="14" y="3" width="7" height="7" rx="1.2" />
-            <rect x="3" y="14" width="7" height="7" rx="1.2" />
-            <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
-          </svg>
-          <span>QR-Code scannen</span>
-        </button>
+        <div class="hero__actions">
+          <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.2" />
+              <rect x="14" y="3" width="7" height="7" rx="1.2" />
+              <rect x="3" y="14" width="7" height="7" rx="1.2" />
+              <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
+            </svg>
+            <span>Fenster scannen</span>
+          </button>
+          <button class="btn btn--primary btn--xl" id="btn-scan-tuer" type="button">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.2" />
+              <rect x="14" y="3" width="7" height="7" rx="1.2" />
+              <rect x="3" y="14" width="7" height="7" rx="1.2" />
+              <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
+            </svg>
+            <span>Haustür scannen</span>
+          </button>
+        </div>
         <p class="hint">
-          Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet.
+          Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet. Zwei
+          Beispielcodes stehen bereit, ein Fenster und eine Haustür.
         </p>
       </div>
 
@@ -94,13 +107,13 @@
         <li>
           <span class="steps__num" aria-hidden="true">1</span>
           <h2>Scannen</h2>
-          <p>QR-Code am Fensterrahmen mit dem Smartphone erfassen.</p>
+          <p>QR-Code am Rahmen von Fenster oder Tür mit dem Smartphone erfassen.</p>
         </li>
         <li>
           <span class="steps__num" aria-hidden="true">2</span>
           <h2>Modell ansehen</h2>
           <p>
-            Ihr Fenster erscheint als 3D-Modell, frei drehbar und zoombar.
+            Fenster oder Tür erscheinen als 3D-Modell, frei drehbar und zoombar.
           </p>
         </li>
         <li>
@@ -118,7 +131,7 @@
     <section class="screen screen--viewer" id="screen-viewer" hidden aria-labelledby="viewer-title">
       <div class="viewer">
         <div class="viewer__stage" id="stage">
-          <canvas id="canvas" aria-label="3D-Modell des Fensters"></canvas>
+          <canvas id="canvas" aria-label="3D-Modell"></canvas>
 
           <div class="viewer__loading" id="viewer-loading" aria-live="polite">
             <span class="spinner" aria-hidden="true"></span>
@@ -130,6 +143,26 @@
                Zeile, damit die Leiste den Platz bekommt, der neben dem Overlay übrig bleibt,
                und darauf per Container-Abfrage reagieren kann. -->
           <div class="viewer__top">
+            <!-- Umschalter zwischen den Modellen. Gleiche Optik wie die Werkzeugleiste, sitzt links. -->
+            <div class="viewer__switch" role="group" aria-label="Modell wechseln">
+              <button class="btn btn--ghost btn--small is-on" type="button" data-modell="fenster" aria-pressed="true"
+                aria-label="Fenster" data-tip="Zum Fenster wechseln">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="1" />
+                  <path d="M12 3v18M3 12h18" />
+                </svg>
+                <span class="btn__label">Fenster</span>
+              </button>
+              <button class="btn btn--ghost btn--small" type="button" data-modell="haustuer" aria-pressed="false"
+                aria-label="Haustür" data-tip="Zur Haustür wechseln">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17" />
+                  <path d="M3 21h18" />
+                  <circle cx="14.5" cy="12.5" r="1" />
+                </svg>
+                <span class="btn__label">Haustür</span>
+              </button>
+            </div>
             <div class="stats" id="stats" role="status" aria-live="off" hidden>
               <div class="stats__fps">
                 <b id="stats-fps">--</b><span>FPS</span>
@@ -235,9 +268,9 @@
         </div>
 
         <aside class="viewer__side">
-          <p class="eyebrow">Ihr Fenster</p>
+          <p class="eyebrow" id="viewer-eyebrow">Ihr Fenster</p>
           <h2 id="viewer-title">Dreh-Kipp-Fenster 1200 × 1400</h2>
-          <p class="muted">Modell-Nr. FK-2026-0417 · erkannt per QR-Code</p>
+          <p class="muted" id="viewer-number">Modell-Nr. FK-2026-0417 · erkannt per QR-Code</p>
           <h3 class="viewer__side-title">Bauteile</h3>
           <ul class="parts" id="parts"></ul>
           <p class="muted viewer__side-note">
@@ -268,7 +301,7 @@
       </div>
       <div class="scan__card">
         <h3 id="scan-title">Jetzt QR-Code scannen</h3>
-        <p id="scan-text">Ihr Fenstermodell wird Ihnen in Folge angezeigt.</p>
+        <p id="scan-text">Ihr Modell wird Ihnen in Folge angezeigt.</p>
         <div class="scan__progress"><span></span></div>
       </div>
     </div>

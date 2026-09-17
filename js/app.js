@@ -1,10 +1,13 @@
 // =====================================================================
 // app.js – UI-Ablauf: Hero -> Scan-Animation -> 3D-Viewer -> Tooltip/Shop
+// Zwei Modelle (Fenster, Haustür): die Startseite scannt eines davon, im Viewer schaltet ein
+// Umschalter zwischen beiden um. Je Modell wird ein eigener Viewer angelegt (der Viewer ist
+// für genau ein Modell gebaut); die Qualitätsstufe wird dabei übernommen.
 // =====================================================================
 
-import { WindowViewer, PART_META, PART_ORDER, SHOP_BASE, preloadModel } from './viewer.js';
+import { WindowViewer, preloadModel } from './viewer.js';
+import { MODELLE, SHOP_BASE } from './modelle.js';
 
-const MODEL_URL = './fenster.glb';
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
 const $ = (sel) => document.querySelector(sel);
@@ -35,6 +38,11 @@ const isStackedLayout = () => window.matchMedia('(max-width: 900px)').matches;
 const els = {
   logo: $('#logo'),
   scanBtn: $('#btn-scan'),
+  scanTuerBtn: $('#btn-scan-tuer'),
+  switchBtns: [...document.querySelectorAll('.viewer__switch [data-modell]')],
+  viewerEyebrow: $('#viewer-eyebrow'),
+  viewerTitle: $('#viewer-title'),
+  viewerNumber: $('#viewer-number'),
   rescanBtn: $('#btn-rescan'),
   hero: $('#screen-hero'),
   viewerScreen: $('#screen-viewer'),
@@ -70,6 +78,8 @@ const els = {
 };
 
 // Zustand
+let modell = MODELLE.fenster;   // das gerade gezeigte (oder als Nächstes gescannte) Modell
+let wechsel = false;            // Modellwechsel läuft (Umschalter gesperrt)
 let viewer = null;
 let viewerInit = null;
 let lastAnchor = { x: 0, y: 0, visible: false };
@@ -77,15 +87,56 @@ let selectedName = null;
 let selectionFromList = false;
 const partLabels = new Map();   // name -> Anzeigename (für das Hover-Schild)
 
-// Modell schon beim Seitenaufruf laden, damit es nach dem "Scan" sofort da ist.
-preloadModel(MODEL_URL).catch(() => { /* Fehler wird in initViewer() behandelt */ });
+// Das Standardmodell schon beim Seitenaufruf laden, damit es nach dem "Scan" sofort da ist;
+// die Tür erst, wenn sie gewählt wird (der Scan dauert länger als ihr Download).
+preloadModel(modell.url).catch(() => { /* Fehler wird in initViewer() behandelt */ });
 
 buildFakeQr(els.scanQr, 25);
 // Vorläufige Liste aus den Metadaten; sobald das Modell geladen ist, wird sie
 // aus den tatsächlich vorhandenen Bauteilen neu aufgebaut.
-buildPartsList(PART_ORDER
-  .filter((name) => PART_META[name] && PART_META[name].hover !== false)
-  .map((name) => ({ name, label: PART_META[name].label, categoryLabel: PART_META[name].categoryLabel })));
+buildPartsList(listeAusModell(modell));
+zeigeModellTexte();
+
+// Bauteil-Liste aus dem Modelleintrag (bevor das GLB da ist), in der dortigen Reihenfolge.
+function listeAusModell(m) {
+  return m.reihenfolge
+    .filter((name) => m.teile[name] && m.teile[name].hover !== false)
+    .map((name) => ({
+      name, label: m.teile[name].label, categoryLabel: m.teile[name].categoryLabel,
+      group: m.gruppen[m.teile[name].category] || 'Weitere Teile',
+    }));
+}
+
+// Alles in der Oberfläche, was am Modell hängt: Seitenleiste, Umschalter, Werkzeugleiste
+// (Beschriftung des Öffnen-Knopfs, Kippen nur wenn das Modell es kann), Canvas-Beschriftung.
+function zeigeModellTexte() {
+  els.viewerEyebrow.textContent = modell.anrede;
+  els.viewerTitle.textContent = modell.titel;
+  els.viewerNumber.textContent = `Modell-Nr. ${modell.nummer} · erkannt per QR-Code`;
+  els.canvas.setAttribute('aria-label', modell.canvasLabel);
+  const beschrifte = (btn, text) => {
+    btn.setAttribute('aria-label', text);
+    btn.dataset.tip = text;
+    btn.querySelector('.btn__label').textContent = text;
+  };
+  beschrifte(els.openBtn, modell.fluegel.oeffnen);
+  els.tiltBtn.hidden = !modell.fluegel.kippen;
+  if (modell.fluegel.kippen) beschrifte(els.tiltBtn, modell.fluegel.kippen);
+  for (const btn of els.switchBtns) {
+    const an = btn.dataset.modell === modell.id;
+    btn.classList.toggle('is-on', an);
+    btn.setAttribute('aria-pressed', String(an));
+  }
+}
+
+// Neuer Canvas für einen neuen Viewer: ein Canvas trägt genau einen WebGL-Kontext, und der
+// alte Renderer hat seinen mit allen Zuständen belegt. Der alte Canvas geht mit seinem Kontext
+// an die Speicherbereinigung.
+function frischerCanvas() {
+  const neu = els.canvas.cloneNode(false);
+  els.canvas.replaceWith(neu);
+  els.canvas = neu;
+}
 
 // ---------------------------------------------------------------------
 // Viewer
@@ -99,7 +150,7 @@ function setLoadingState(state, err) {
   } else if (state === 'error') {
     const msg = err && err.message ? ` (${err.message})` : '';
     els.loadingText.textContent =
-      `Das 3D-Modell konnte nicht geladen werden${msg}. Prüfen Sie, ob fenster.glb neben index.html liegt `
+      `Das 3D-Modell konnte nicht geladen werden${msg}. Prüfen Sie, ob ${modell.url.replace(/^\.\//, '')} neben index.html liegt `
       + 'und die Seite über einen Webserver geöffnet ist (z. B. XAMPP: http://localhost/…). '
       + 'Mit „Neu scannen" können Sie es erneut versuchen.';
   } else {
@@ -107,12 +158,15 @@ function setLoadingState(state, err) {
   }
 }
 
-function initViewer() {
+// @param {number|null} startStufe Qualitätsstufe des vorigen Viewers (Modellwechsel), sonst null
+function initViewer(startStufe = null) {
   if (viewerInit) return viewerInit;
   setLoadingState('loading');
   viewer = new WindowViewer({
     canvas: els.canvas,
     stage: els.stage,
+    modell,
+    startStufe,
     onSelect: handleSelect,
     onAnchor: handleAnchor,
     onHover: handleHover,
@@ -126,7 +180,7 @@ function initViewer() {
     // Wird erst beim Aufruf geladen, im normalen Betrieb nie.
     window.fensterMessung = async (optionen) => (await import('../dev/kamera-messung.js')).suite(viewer, optionen);
   }
-  viewerInit = viewer.init(MODEL_URL)
+  viewerInit = viewer.init(modell.url)
     .then(() => {
       els.loading.hidden = true;
       buildPartsList(viewer.getParts());
@@ -142,6 +196,60 @@ function initViewer() {
       throw err;
     });
   return viewerInit;
+}
+
+// Aktuellen Viewer samt Canvas verwerfen, damit der nächste sauber neu aufsetzt.
+function verwerfeViewer() {
+  if (viewer) {
+    try { viewer.select(null); } catch (_) { /* ignorieren */ }
+    try { viewer.dispose(); } catch (_) { /* ignorieren */ }
+  }
+  viewer = null;
+  viewerInit = null;
+  frischerCanvas();
+}
+
+// Modell wählen (Startseite oder Umschalter): Texte und Liste sofort, ein anderer laufender
+// Viewer wird verworfen. Gibt zurück, ob sich etwas geändert hat.
+function waehleModell(id) {
+  const neu = MODELLE[id];
+  if (!neu || neu === modell) return false;
+  modell = neu;
+  zeigeModellTexte();
+  buildPartsList(listeAusModell(modell));
+  if (viewer) verwerfeViewer();
+  return true;
+}
+
+// Umschalter im Viewer: neues Modell mit der Stufe des alten Viewers laden (keine Einmessung,
+// kein Overlay), dann das Intro spielen, damit der Wechsel nicht wie ein Absturz wirkt.
+async function wechsleModell(id) {
+  if (wechsel || scanning || !MODELLE[id] || MODELLE[id] === modell) return;
+  wechsel = true;
+  for (const btn of [...els.switchBtns, els.scanBtn, els.scanTuerBtn]) btn.disabled = true;
+  const stufe = viewer && viewer.ready ? viewer.perf.stufe : null;
+  toggleStats(false);
+  waehleModell(id);
+  sperreToolbar(true);
+  syncToolbar();   // alte Zustände (Explosion, offen) gelten für den neuen Viewer nicht
+  try {
+    await initViewer(stufe);
+    if (viewer && viewer.ready) {
+      viewer.prepareIntro();
+      // Ist der Nutzer währenddessen zur Startseite gegangen, bleibt der Viewer angehalten;
+      // der nächste Scan startet ihn mit dem Intro (startScan).
+      if (!els.viewerScreen.hidden) {
+        viewer.start();
+        viewer.playIntro();
+      }
+    }
+  } catch (_) {
+    /* Fehler steht im Overlay (setLoadingState) */
+  }
+  syncToolbar();
+  sperreToolbar(false);
+  for (const btn of [...els.switchBtns, els.scanBtn, els.scanTuerBtn]) btn.disabled = false;
+  wechsel = false;
 }
 
 // WebGL-Sitzung weg (Handy im Hintergrund, Speicherdruck): Hinweis statt schwarzem Bild,
@@ -309,15 +417,19 @@ function showScreen(which) {
 // Scan-Ablauf (Dummy): Overlay -> "erkannt" -> Übergang zum 3D-Viewer
 let scanning = false;
 
-async function startScan() {
-  if (scanning) return;
+// @param {string} id Modell, das der simulierte Scan "erkennt" (fenster | haustuer)
+async function startScan(id) {
+  if (scanning || wechsel) return;
   scanning = true;
   els.scanBtn.disabled = true;
+  els.scanTuerBtn.disabled = true;
+  waehleModell(id);
+  preloadModel(modell.url).catch(() => { /* Fehler wird in initViewer() behandelt */ });
 
   // Overlay einblenden, Scan-Zustand
   els.scan.classList.remove('is-found');
   els.scanTitle.textContent = 'Jetzt QR-Code scannen';
-  els.scanText.textContent = 'Ihr Fenstermodell wird Ihnen in Folge angezeigt.';
+  els.scanText.textContent = 'Ihr Modell wird Ihnen in Folge angezeigt.';
   els.scan.hidden = false;
   void els.scan.offsetWidth;
   els.scan.classList.add('is-visible');
@@ -331,7 +443,7 @@ async function startScan() {
   await wait(900);
   els.scan.classList.add('is-found');
   els.scanTitle.textContent = 'QR-Code erkannt';
-  els.scanText.textContent = 'Fenster FK-2026-0417 · Modell wird geladen …';
+  els.scanText.textContent = `${modell.scanZeile} · Modell wird geladen …`;
 
   await Promise.all([wait(900), ready]);
 
@@ -358,6 +470,7 @@ async function startScan() {
 
   scanning = false;
   els.scanBtn.disabled = false;
+  els.scanTuerBtn.disabled = false;
 }
 
 function goHome() {
@@ -374,7 +487,9 @@ function goHome() {
 
 // ---------------------------------------------------------------------
 // Events
-els.scanBtn.addEventListener('click', startScan);
+els.scanBtn.addEventListener('click', () => startScan('fenster'));
+els.scanTuerBtn.addEventListener('click', () => startScan('haustuer'));
+for (const btn of els.switchBtns) btn.addEventListener('click', () => wechsleModell(btn.dataset.modell));
 els.rescanBtn.addEventListener('click', goHome);
 els.logo.addEventListener('click', (e) => { e.preventDefault(); goHome(); });
 // Leistungs-Overlay: Auflösung, Bildrate und erkannte Grafik. Aktualisiert sich viermal je
