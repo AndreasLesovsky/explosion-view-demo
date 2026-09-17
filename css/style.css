@@ -181,6 +181,44 @@ h3 {
   text-underline-offset: 4px;
 }
 
+/* Umschalter zwischen den Modellen: zwei Segmente in einer weißen Pille auf dem roten Kopf,
+   das aktive Segment gefüllt. */
+.nav__switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 999px;
+}
+
+.nav__seg {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+.nav__seg:hover:not(.is-on) {
+  background: rgba(255, 255, 255, .16);
+}
+
+.nav__seg.is-on {
+  background: #fff;
+  color: var(--red);
+}
+
+.nav__seg:disabled {
+  cursor: default;
+  opacity: .7;
+}
+
 /* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
@@ -308,15 +346,58 @@ h3 {
   color: var(--ink-2);
 }
 
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 14px;
+/* Demo-Auswahl unter dem Scan-Knopf: welches Beispiel der simulierte Scan erkennt. Bewusst
+   klein und neben dem Demo-Hinweis, nicht als zweiter Handlungsaufruf. */
+.hero__demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hero__demo-label {
+  margin-right: 2px;
+}
+
+.chip {
+  position: relative;
+  cursor: pointer;
+}
+
+.chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.chip span {
+  display: inline-block;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-weight: 500;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.chip input:checked + span {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.chip input:focus-visible + span {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
 }
 
 .hint {
-  margin-top: 18px;
+  margin-top: 14px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -522,46 +603,7 @@ h3 {
   }
 }
 
-/* Umschalter zwischen den Modellen, links in der Kopfzeile. Zwei Knöpfe in der Optik der
-   Werkzeugleiste; fasst wie sie nur an den Knöpfen selbst an. */
-.viewer__switch {
-  display: flex;
-  gap: 6px;
-  flex: none;
-  /* Nicht auf die Höhe der Kopfzeile dehnen: steht die Leiste senkrecht (unter 636 px), ist
-     die Zeile so hoch wie die ganze Leiste, und gedehnte Knöpfe wären 300 px hohe Pillen. */
-  align-self: flex-start;
-  margin-right: 12px;
-  pointer-events: none;
-}
-
-.viewer__switch .btn {
-  pointer-events: auto;
-}
-
-/* Gleiche Höhe wie die Knöpfe der Leiste, sobald die auf 44 px Symbole schrumpfen (1360 px),
-   damit beide Reihen bündig sind; die Beschriftung bleibt hier noch stehen. */
-@container kopf (max-width: 1360px) {
-  .viewer__switch .btn--small {
-    height: 44px;
-  }
-}
-
-/* Reicht die Kopfzeile nicht einmal für zwei kurze Wörter neben der senkrechten Leiste,
-   bleiben auch hier die Symbole. */
-@container kopf (max-width: 420px) {
-  .viewer__switch .btn--small {
-    width: 44px;
-    padding: 0;
-    gap: 0;
-  }
-
-  .viewer__switch .btn__label {
-    display: none;
-  }
-}
-
-:is(.viewer__toolbar, .viewer__switch) .btn--ghost {
+.viewer__toolbar .btn--ghost {
   background: rgba(255, 255, 255, .88);
   border-color: var(--line);
   color: var(--ink);
@@ -569,17 +611,17 @@ h3 {
   box-shadow: var(--shadow-sm);
 }
 
-:is(.viewer__toolbar, .viewer__switch) .btn--ghost:hover {
+.viewer__toolbar .btn--ghost:hover {
   border-color: var(--ink-2);
 }
 
-:is(.viewer__toolbar, .viewer__switch) .btn.is-on {
+.viewer__toolbar .btn.is-on {
   background: var(--ink);
   color: #fff;
   border-color: var(--ink);
 }
 
-:is(.viewer__toolbar, .viewer__switch) .btn svg {
+.viewer__toolbar .btn svg {
   width: 18px;
   height: 18px;
   flex: none;
@@ -816,12 +858,6 @@ h3 {
     right: 0;
     transform: none;
   }
-
-  /* Der Umschalter sitzt am linken Rand: Blase an der linken Knopfkante, aus demselben Grund. */
-  .viewer__switch .btn::after {
-    left: 0;
-    transform: none;
-  }
 }
 
 /* ---------- Leistungs-Overlay ---------- */
@@ -832,11 +868,12 @@ h3 {
   /* Absolut, damit das Overlay der Werkzeugleiste keine Breite wegnimmt. Es gehört nicht in
      deren Container: sonst hinge die Form der Leiste daran, ob das Overlay offen ist. */
   position: absolute;
-  /* Unter dem Umschalter (44 px plus Abstand), der oben links sitzt; darunter ist bei jeder
-     Breite Platz: unter 636 px steht die Leiste senkrecht und ist nur einen Knopf breit,
-     darüber ist neben dem Overlay reichlich Platz. */
-  top: 56px;
+  top: 0;
   left: 0;
+  /* Sitzt immer oben links, in jedem Zustand und bei jeder Breite. Unter 576 px steht die
+     Leiste senkrecht und ist nur einen Knopf breit, darüber ist neben dem Overlay reichlich
+     Platz - die beiden kommen sich also nie in die Quere, ohne dass hier etwas ausweichen
+     müsste. */
   display: flex;
   align-items: center;
   gap: 12px;

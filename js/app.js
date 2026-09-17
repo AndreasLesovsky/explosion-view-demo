@@ -38,8 +38,9 @@ const isStackedLayout = () => window.matchMedia('(max-width: 900px)').matches;
 const els = {
   logo: $('#logo'),
   scanBtn: $('#btn-scan'),
-  scanTuerBtn: $('#btn-scan-tuer'),
-  switchBtns: [...document.querySelectorAll('.viewer__switch [data-modell]')],
+  demoRadios: [...document.querySelectorAll('input[name="demo-modell"]')],
+  modellSwitch: $('#modell-switch'),
+  switchBtns: [...document.querySelectorAll('#modell-switch [data-modell]')],
   viewerEyebrow: $('#viewer-eyebrow'),
   viewerTitle: $('#viewer-title'),
   viewerNumber: $('#viewer-number'),
@@ -127,6 +128,14 @@ function zeigeModellTexte() {
     btn.classList.toggle('is-on', an);
     btn.setAttribute('aria-pressed', String(an));
   }
+  // Die Demo-Auswahl der Startseite folgt dem Modell, damit "Neu scannen" dasselbe wiederfindet.
+  for (const r of els.demoRadios) r.checked = r.value === modell.id;
+}
+
+// Beispiel, das der simulierte Scan erkennen soll (Auswahl auf der Startseite).
+function gewaehltesDemo() {
+  const r = els.demoRadios.find((x) => x.checked);
+  return r ? r.value : 'fenster';
 }
 
 // Neuer Canvas für einen neuen Viewer: ein Canvas trägt genau einen WebGL-Kontext, und der
@@ -226,7 +235,7 @@ function waehleModell(id) {
 async function wechsleModell(id) {
   if (wechsel || scanning || !MODELLE[id] || MODELLE[id] === modell) return;
   wechsel = true;
-  for (const btn of [...els.switchBtns, els.scanBtn, els.scanTuerBtn]) btn.disabled = true;
+  for (const btn of [...els.switchBtns, els.scanBtn]) btn.disabled = true;
   const stufe = viewer && viewer.ready ? viewer.perf.stufe : null;
   toggleStats(false);
   waehleModell(id);
@@ -248,7 +257,7 @@ async function wechsleModell(id) {
   }
   syncToolbar();
   sperreToolbar(false);
-  for (const btn of [...els.switchBtns, els.scanBtn, els.scanTuerBtn]) btn.disabled = false;
+  for (const btn of [...els.switchBtns, els.scanBtn]) btn.disabled = false;
   wechsel = false;
 }
 
@@ -407,6 +416,7 @@ function showScreen(which) {
   void show.offsetWidth; // Reflow, damit die Transition greift
   show.classList.add('is-active');
   els.rescanBtn.hidden = which !== 'viewer';
+  els.modellSwitch.hidden = which !== 'viewer';
   // Der Fußbereich gehört zur Startseite. Im Viewer füllt die Bühne die Höhe des Fensters,
   // ein Fußbereich darunter ergäbe nur eine Scrollleiste neben einem Canvas, der Scrollen abfängt.
   if (els.footer) els.footer.hidden = which === 'viewer';
@@ -422,7 +432,6 @@ async function startScan(id) {
   if (scanning || wechsel) return;
   scanning = true;
   els.scanBtn.disabled = true;
-  els.scanTuerBtn.disabled = true;
   waehleModell(id);
   preloadModel(modell.url).catch(() => { /* Fehler wird in initViewer() behandelt */ });
 
@@ -470,7 +479,6 @@ async function startScan(id) {
 
   scanning = false;
   els.scanBtn.disabled = false;
-  els.scanTuerBtn.disabled = false;
 }
 
 function goHome() {
@@ -487,8 +495,11 @@ function goHome() {
 
 // ---------------------------------------------------------------------
 // Events
-els.scanBtn.addEventListener('click', () => startScan('fenster'));
-els.scanTuerBtn.addEventListener('click', () => startScan('haustuer'));
+els.scanBtn.addEventListener('click', () => startScan(gewaehltesDemo()));
+// Gewähltes Beispiel gleich laden, dann ist es nach dem Scan da wie das Standardmodell.
+for (const r of els.demoRadios) {
+  r.addEventListener('change', () => { if (r.checked) preloadModel(MODELLE[r.value].url).catch(() => { /* wird in initViewer() behandelt */ }); });
+}
 for (const btn of els.switchBtns) btn.addEventListener('click', () => wechsleModell(btn.dataset.modell));
 els.rescanBtn.addEventListener('click', goHome);
 els.logo.addEventListener('click', (e) => { e.preventDefault(); goHome(); });

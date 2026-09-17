@@ -213,6 +213,9 @@ export const FENSTER = {
   url: './fenster.glb',
   // Node, dessen Kinder die Bauteile sind.
   root: 'Fenster',
+  // Hauptseite: dort liegen Ruheansicht, Intro und Explosion; die andere Seite erreicht man über
+  // den Ansichtsknopf. Fenster: innen.
+  hauptseite: 'innen',
   // Texte der Oberfläche.
   anrede: 'Ihr Fenster',
   titel: 'Dreh-Kipp-Fenster 1200 × 1400',
@@ -224,7 +227,9 @@ export const FENSTER = {
   fluegel: { name: 'Fluegel', winkel: 32, oeffnen: 'Flügel öffnen', kippen: 'Flügel kippen' },
   // Griff mit fester Rosette (eigenes Objekt, dreht nicht mit). Drehung in Grad: Drehen 90,
   // Kippen 180 (Griff zeigt nach oben). `richtung` null: aus der Griffseite ableiten.
-  griff: { name: 'Griff', rosette: 'Griff_Rosette', drehen: 90, kippen: 180, richtung: null },
+  // `loslassen`: der Griff geht zurück in die Ruhelage, sobald der Flügel schwingt (Drücker);
+  // ein Fenstergriff bleibt in seiner Stellung.
+  griff: { name: 'Griff', rosette: 'Griff_Rosette', drehen: 90, kippen: 180, richtung: null, loslassen: false },
   // Ausstellschere: schwenkt beim Kippen um ihr rahmenseitiges Ende.
   schere: 'Schere',
   // Bandteile, aus deren Custom Property `pivot` (oder Lage) die Bandachse folgt.
@@ -460,6 +465,9 @@ export const HAUSTUER = {
   id: 'haustuer',
   url: './haustuer.glb',
   root: 'Tuer',
+  // Die meisten Bauteile einer Haustür sitzen außen (Stoßgriff, Fingerprint, Dekorplatte, die
+  // Ansichtsfläche des Blatts): Ruheansicht, Intro und Explosion liegen vor der Fassade.
+  hauptseite: 'aussen',
   anrede: 'Ihre Haustür',
   titel: 'Haustür Aluminium 1100 × 2200',
   nummer: 'HT-2026-0930',
@@ -469,7 +477,7 @@ export const HAUSTUER = {
   fluegel: { name: 'Tuerblatt', winkel: 60, oeffnen: 'Tür öffnen', kippen: null },
   // Der Drücker liegt waagerecht und zeigt zur Türmitte (+x, zur Bandseite hin); Drücken heißt
   // nach unten, vom Raum aus gesehen im Uhrzeigersinn, also negativ um +z: Richtung -1, 38 Grad.
-  griff: { name: 'Druecker', rosette: 'Druecker_Rosette', drehen: 38, kippen: null, richtung: -1 },
+  griff: { name: 'Druecker', rosette: 'Druecker_Rosette', drehen: 38, kippen: null, richtung: -1, loslassen: true },
   schere: null,
   bandMuster: /^Band_(oben|mitte|unten)/,
   fensterbank: null,
@@ -498,40 +506,39 @@ export const HAUSTUER = {
     'Innendichtung', 'Anschlagdichtung',
     'Tuerblatt', 'Dekorplatte', 'Rahmen_links', 'Rahmen_rechts', 'Rahmen_oben', 'Schwelle',
   ],
-  // Ebenen von der Wand in den Raum: Blendrahmen und Schwelle (auseinander), Schließbleche mit
-  // dem linken Rahmen, äußere und innere Dichtung, Türblatt. Was außen am Blatt sitzt
-  // (Dekorplatte, Stoßgriff, Fingerprint), bleibt hinter der Blattebene, aber seitlich daneben,
-  // damit es von innen zu sehen ist; die Bänder rechts, Schlossteile links, Zylinder und
-  // Drücker vor dem Blatt. Die x-Werte sind so gewählt, dass sich keine zwei Teile berühren
-  // (nachgemessen über die Explosions-Boxen, siehe dev/kamera-messung.js).
+  // Die Explosion liegt vor der Fassade (hauptseite aussen); +z in dieser Tabelle heißt "zur
+  // Kamera", der Viewer spiegelt es auf -z. Ebenen von der Wand nach außen: Blendrahmen und
+  // Schwelle (auseinander), die Schließbleche bleiben auf dem linken Rahmen, innere und äußere
+  // Dichtung, dann das Türblatt mit den Bändern daneben (von außen links) und den Schlossteilen
+  // auf der anderen Seite; davor Zylinder, Dekorplatte, Stoßgriff und ganz vorn der Fingerprint.
+  // Der Innendrücker liegt neben der Schlosskante in der Blattebene, damit er von außen zu sehen
+  // ist. Die Werte sind so gewählt, dass sich keine zwei Teile berühren und nichts hinter einem
+  // größeren Teil verschwindet (nachgemessen über die Explosions-Boxen).
   versatz: {
     Rahmen_links:        [-0.28, 0, 0],
     Rahmen_rechts:       [ 0.28, 0, 0],
     Rahmen_oben:         [ 0, 0.28, 0],
     Schwelle:            [ 0, -0.28, 0],
-    Schliessblech_oben:  [-0.22, 0, 0.1],
-    Schliessblech_mitte: [-0.22, 0, 0.1],
-    Schliessblech_unten: [-0.22, 0, 0.1],
-    Anschlagdichtung:    [ 0, 0, 0.08],
-    Innendichtung:       [ 0, 0, 0.16],
+    Schliessblech_oben:  [-0.28, 0, 0],
+    Schliessblech_mitte: [-0.28, 0, 0],
+    Schliessblech_unten: [-0.28, 0, 0],
+    Innendichtung:       [ 0, 0, 0.08],
+    Anschlagdichtung:    [ 0, 0, 0.16],
     Tuerblatt:           [ 0, 0, 0.3],
-    // Rechts neben dem Blatt, knapp HINTER der Ebene des Blendrahmens: davor verdeckte sie den
-    // rechten Blendrahmen fast ganz; so bleibt er frei und die Platte schaut links und rechts
-    // von ihm hervor. Nach dem Hub liegt sie 3 cm vor der Wandfläche.
-    Dekorplatte:         [ 0.6, 0, -0.1],
     Band_oben_Fluegel:   [ 0.7, 0, 0.3],
     Band_mitte_Fluegel:  [ 0.7, 0, 0.3],
     Band_unten_Fluegel:  [ 0.7, 0, 0.3],
     Band_oben:           [ 0.78, 0, 0.3],
     Band_mitte:          [ 0.78, 0, 0.3],
     Band_unten:          [ 0.78, 0, 0.3],
-    Stossgriff:          [-0.3, 0, 0.16],
-    Fingerprint:         [-0.42, 0, 0.16],
     Stulp:               [-0.62, 0, 0.3],
     Riegel:              [-0.62, 0, 0.3],
     Falle:               [-0.62, 0, 0.3],
-    Zylinder:            [ 0, 0, 0.72],
-    Druecker:            [ 0, 0, 0.95],
+    Druecker:            [-0.28, 0, 0.3],
+    Zylinder:            [-0.2, 0, 0.45],
+    Dekorplatte:         [ 0, 0, 0.5],
+    Stossgriff:          [ 0, 0, 0.7],
+    Fingerprint:         [ 0, 0, 0.9],
   },
   introVerzoegerung: {
     Rahmen_links: 0, Rahmen_rechts: 0, Rahmen_oben: 0.06, Schwelle: 0.06,

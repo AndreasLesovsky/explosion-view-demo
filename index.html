@@ -55,6 +55,11 @@
     <a class="logo" href="#" id="logo" aria-label="Explosion View Demo – Startseite">Explosion&nbsp;View<span
         class="logo__tag">Demo</span></a>
     <nav class="nav" aria-label="Hauptnavigation">
+      <!-- Umschalter zwischen den Modellen; nur im Viewer sichtbar (siehe showScreen in app.js). -->
+      <div class="nav__switch" id="modell-switch" role="group" aria-label="Modell wechseln" hidden>
+        <button class="nav__seg is-on" type="button" data-modell="fenster" aria-pressed="true">Fenster</button>
+        <button class="nav__seg" type="button" data-modell="haustuer" aria-pressed="false">Haustür</button>
+      </div>
       <a href="#">Shop</a>
       <button class="btn btn--ghost btn--small" id="btn-rescan" type="button" hidden>
         Neu scannen
@@ -68,38 +73,31 @@
       <div class="hero">
         <p class="eyebrow">Ersatzteile für Fenster und Türen</p>
         <h1 id="hero-title">
-          Fenster oder Tür scannen.<br />Bauteil finden.<br />Direkt bestellen.
+          QR-Code scannen.<br />Bauteil finden.<br />Direkt bestellen.
         </h1>
         <p class="lead">
           Scannen Sie den QR-Code auf Ihrem Fenster oder Ihrer Haustür. Sie
           erhalten ein interaktives 3D-Modell, in dem Sie jedes Bauteil antippen
           und passende Ersatzteile im Shop finden.
         </p>
-        <div class="hero__actions">
-          <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1.2" />
-              <rect x="14" y="3" width="7" height="7" rx="1.2" />
-              <rect x="3" y="14" width="7" height="7" rx="1.2" />
-              <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
-            </svg>
-            <span>Fenster scannen</span>
-          </button>
-          <button class="btn btn--primary btn--xl" id="btn-scan-tuer" type="button">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1.2" />
-              <rect x="14" y="3" width="7" height="7" rx="1.2" />
-              <rect x="3" y="14" width="7" height="7" rx="1.2" />
-              <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
-            </svg>
-            <span>Haustür scannen</span>
-          </button>
+        <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.2" />
+            <rect x="14" y="3" width="7" height="7" rx="1.2" />
+            <rect x="3" y="14" width="7" height="7" rx="1.2" />
+            <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
+          </svg>
+          <span>QR-Code scannen</span>
+        </button>
+        <!-- Welches Beispiel der simulierte Scan "erkennt": Teil des Demo-Hinweises, nicht des Produkts. -->
+        <div class="hero__demo" role="radiogroup" aria-label="Beispiel für den simulierten Scan">
+          <span class="hero__demo-label">Beispiel:</span>
+          <label class="chip"><input type="radio" name="demo-modell" value="fenster" checked /><span>Fenster</span></label>
+          <label class="chip"><input type="radio" name="demo-modell" value="haustuer" /><span>Haustür</span></label>
         </div>
         <p class="hint">
-          Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet. Zwei
-          Beispielcodes stehen bereit, ein Fenster und eine Haustür.
+          Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet.
         </p>
       </div>
 
@@ -143,26 +141,6 @@
                Zeile, damit die Leiste den Platz bekommt, der neben dem Overlay übrig bleibt,
                und darauf per Container-Abfrage reagieren kann. -->
           <div class="viewer__top">
-            <!-- Umschalter zwischen den Modellen. Gleiche Optik wie die Werkzeugleiste, sitzt links. -->
-            <div class="viewer__switch" role="group" aria-label="Modell wechseln">
-              <button class="btn btn--ghost btn--small is-on" type="button" data-modell="fenster" aria-pressed="true"
-                aria-label="Fenster" data-tip="Zum Fenster wechseln">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="1" />
-                  <path d="M12 3v18M3 12h18" />
-                </svg>
-                <span class="btn__label">Fenster</span>
-              </button>
-              <button class="btn btn--ghost btn--small" type="button" data-modell="haustuer" aria-pressed="false"
-                aria-label="Haustür" data-tip="Zur Haustür wechseln">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17" />
-                  <path d="M3 21h18" />
-                  <circle cx="14.5" cy="12.5" r="1" />
-                </svg>
-                <span class="btn__label">Haustür</span>
-              </button>
-            </div>
             <div class="stats" id="stats" role="status" aria-live="off" hidden>
               <div class="stats__fps">
                 <b id="stats-fps">--</b><span>FPS</span>

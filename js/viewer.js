@@ -364,6 +364,9 @@ export class WindowViewer {
     this.modell = modell;
     this.openAngle = THREE.MathUtils.degToRad(modell.fluegel.winkel);
     this.kannKippen = !!modell.fluegel.kippen;
+    // Hauptseite des Modells: dort liegen Ruheansicht, Intro und Explosion (Fenster innen,
+    // Haustür außen, weil ihre Bauteile größtenteils außen sitzen).
+    this.hauptAussen = modell.hauptseite === 'aussen';
     this.startStufeVorgabe = startStufe;
     this.kontextVerloren = false;
 
@@ -773,8 +776,11 @@ export class WindowViewer {
     this.wallOuterZ = wandBox.min.z;
     this.wallHalfX = wandSize.x / 2;
     this.floorY = wandBox.min.y;
-    // So weit nach vorn, dass der Blendrahmen in der Explosion komplett vor der Innenwand liegt.
-    this.explodeLift = Math.max(0.2, wandBox.max.z - this.box.min.z + 0.06);
+    // So weit zur Hauptseite, dass der Blendrahmen in der Explosion komplett vor der Wandfläche
+    // liegt: innen in den Raum (+z), außen vor die Fassade (-z).
+    this.explodeLift = this.hauptAussen
+      ? -Math.max(0.2, this.box.max.z - wandBox.min.z + 0.06)
+      : Math.max(0.2, wandBox.max.z - this.box.min.z + 0.06);
     // Explosionsversatz je Teil: Tabelle, sonst aus `mount` und Lage abgeleitet.
     const winCenter = this.box.getCenter(new THREE.Vector3());
     for (const [name, obj] of this.parts) {
@@ -783,7 +789,9 @@ export class WindowViewer {
       obj.userData.partBox = pb;
       let hardware = false;
       obj.traverse((o) => { if (o.isMesh && o.material && modell.hardwareMaterialien.includes(o.material.name)) hardware = true; });
-      obj.userData.explodeOffset = modell.versatz[name] || mountOffset(obj.userData.mount, c, hardware);
+      const versatz = modell.versatz[name] || mountOffset(obj.userData.mount, c, hardware);
+      // Die Tabellen sind "zur Kamera der Hauptseite" notiert: außen zeigt ihr +z nach -z.
+      obj.userData.explodeOffset = this.hauptAussen ? [versatz[0], versatz[1], -versatz[2]] : versatz;
       obj.userData.introDelay = modell.introVerzoegerung[name] ?? MOUNT_INTRO_DELAY[obj.userData.mount] ?? 0;
     }
     for (const { obj, host } of this.attached) {
@@ -868,7 +876,10 @@ export class WindowViewer {
     this.explodeShift = this.explodedCenter.z - this.homeTarget.z;
     // Mindestabstand in der Explosion: bis vor die vordersten Teile, plus Reserve, damit die
     // Kamera beim Kreisen um die Baugruppe nie in ein Teil gerät.
-    this.explodeMinDist = Math.max(MIN_DIST, this.explodedBox.max.z - this.explodedCenter.z + 0.15);
+    const vorn = this.hauptAussen
+      ? this.explodedCenter.z - this.explodedBox.min.z
+      : this.explodedBox.max.z - this.explodedCenter.z;
+    this.explodeMinDist = Math.max(MIN_DIST, vorn + 0.15);
     // Grenzen des Blickpunkt-Schwenks aus der Fenstergröße: der Blickpunkt darf bis auf die
     // Kante wandern, nicht darüber hinaus. Sonst zielt die Kamera neben die Öffnung und sieht
     // nur noch Wand. Wie schnell die Grenze erreicht wird, regeln xFrame und yFrame*.
@@ -1141,7 +1152,9 @@ export class WindowViewer {
 
     this.homeDist = this.computeHomeDistance();
     // Explosion: Box darf das Bild fast füllen, die äußersten Ecken sind nur Rahmenenden.
-    this.explodeDist = this.explodedBox ? this.computeFitDistance(this.explodedBox, 0.92) : this.homeDist * 1.3;
+    this.explodeDist = this.explodedBox
+      ? this.computeFitDistance(this.explodedBox, 0.92, this.hauptAussen ? this.outsideDir : this.insideDir)
+      : this.homeDist * 1.3;
     this.controls.maxDistance = Math.max(this.homeDist * 2.4, this.explodeDist * 1.2);
     if (!this.userInteracted && !this.hasTween('camera')) this.placeAtStandardPose();
     this.needsRender = true;
@@ -1184,7 +1197,7 @@ export class WindowViewer {
   // Kameradistanz so wählen, dass eine Bounding-Box (montiert oder explodiert, inkl.
   // Griff) aus der Home-Blickrichtung mit Rand ins Bild passt. Die Ecken werden real
   // projiziert, damit Hochformat und schräge Blickrichtung korrekt berücksichtigt sind.
-  computeFitDistance(box, fill = null) {
+  computeFitDistance(box, fill = null, dir = this.homeDir) {
     const cam = this._fitCamera || (this._fitCamera = new THREE.PerspectiveCamera());
     cam.fov = this.camera.fov;
     cam.aspect = this.camera.aspect || 1;
@@ -1207,7 +1220,7 @@ export class WindowViewer {
     const p = new THREE.Vector3();
     const center = box.getCenter(new THREE.Vector3());   // Kamera kreist um die Boxmitte
     for (let iter = 0; iter < 10; iter++) {
-      cam.position.copy(center).addScaledVector(this.homeDir, dist);
+      cam.position.copy(center).addScaledVector(dir, dist);
       cam.lookAt(center);
       cam.updateMatrixWorld(true);
       let maxN = 0;
@@ -2004,8 +2017,9 @@ export class WindowViewer {
     this._pivotArmed = false;
     this.focused = null;
     if (this.controls) this.controls.minDistance = MIN_DIST;
-    this.outside = false;
-    this.outsideRequested = false;
+    // Startseite der Kamera ist die Hauptseite des Modells.
+    this.outside = this.hauptAussen;
+    this.outsideRequested = this.hauptAussen;
     this.applyViewSide();
     this.sashMode = 'closed';
     this.openFactor = 0;
@@ -2015,7 +2029,7 @@ export class WindowViewer {
     for (const name of this.parts.keys()) this.partFactor.set(name, 1);
     this.applyExplode();
     this.controls.target.copy(this.homeTarget);
-    this.camera.position.copy(this.homePosition(this.homeDist * 1.4, this.introDir));
+    this.camera.position.copy(this.homePosition(this.homeDist * 1.4, this.sideDir(this.introDir)));
     this.camera.lookAt(this.homeTarget);
     this.controls.enabled = false;
     this.needsRender = true;
@@ -2182,9 +2196,24 @@ export class WindowViewer {
     }
     if (oT > o0) steps.push({ key: 'openFactor', from: o0, to: oT, dur: OPEN_DURATION * (oT - o0), moves: true });
     if (tT > t0) steps.push({ key: 'tiltFactor', from: t0, to: tT, dur: TILT_DURATION * (tT - t0), moves: true });
+    // Drücker (Tür): niemand hält ihn, während die Tür schwingt. Sobald sie sich bewegt, geht
+    // er in die Ruhelage zurück - parallel zum Öffnen, nach einem Viertel von dessen Dauer.
+    const loslassen = !!(g.loslassen && oT > o0 && hT > 0);
+    if (loslassen) {
+      steps.push({ key: 'handleAngle', from: hT, to: 0, dur: HANDLE_TURN_DURATION * hT / (Math.PI / 2), moves: false, parallelZu: 'openFactor' });
+    }
     if (!steps.length) return 0;
     let at = 0;
-    for (const step of steps) { step.start = at; at += step.dur; }
+    for (const step of steps) {
+      if (step.parallelZu) {
+        const bezug = steps.find((s) => s.key === step.parallelZu && s.moves);
+        step.start = bezug.start + bezug.dur * 0.25;
+        at = Math.max(at, step.start + step.dur);
+        continue;
+      }
+      step.start = at;
+      at += step.dur;
+    }
     const total = at;
     const movesTotal = steps.reduce((sum, step) => sum + (step.moves ? step.dur : 0), 0);
     // Fortschritt der Flügelbewegung (ohne Griffdrehung), geglättet, 0 … 1: daran hängen
@@ -2251,7 +2280,7 @@ export class WindowViewer {
       complete: () => {
         this.openFactor = oT;
         this.tiltFactor = tT;
-        this.handleAngle = hT;
+        this.handleAngle = loslassen ? 0 : hT;
         this.applyExplode();
         if (this.focused) this.pivot.copy(this.partCenter(this.focused));
         else this.pivot.copy(pivotTo);
@@ -2283,10 +2312,11 @@ export class WindowViewer {
     // Eine laufende Fokusfahrt zu Ende fahren lassen (siehe cancelCameraTweens).
     delay = Math.max(delay, this.restFokusFahrt());
     this.cancelCameraTweens(true);
-    // Die Explosion gibt es nur in der Innenansicht: von außen erst hinein fahren.
+    // Die Explosion gibt es nur auf der Hauptseite des Modells (Fenster innen, Haustür außen):
+    // von der anderen Seite erst hinüberfahren.
     let switchedSide = false;
-    if (on && (this.outside || this.outsideRequested)) {
-      delay = Math.max(delay, this.setOutside(false));
+    if (on && (this.outside !== this.hauptAussen || this.outsideRequested !== this.hauptAussen)) {
+      delay = Math.max(delay, this.setOutside(this.hauptAussen));
       switchedSide = true;
     }
     this.exploded = !!on;
@@ -2375,13 +2405,14 @@ export class WindowViewer {
   // Innen-/Außenansicht wechseln: Kamerafahrt als Orbit um die Fenstermitte, außen um die
   // Wandkante herum (nicht durch die Scheibe), der Blick bleibt die ganze Zeit auf dem Fenster.
   // Endet in der Ruhepose der anderen Seite. Bei aktiver Explosion wird zuerst eingeklappt
-  // (Explosion nur innen). Seite, Home-Richtung und Schranke wechseln erst, wenn die Fahrt
+  // (Explosion nur auf der Hauptseite). Seite, Home-Richtung und Schranke wechseln erst, wenn die Fahrt
   // beginnt (verzögerter Start), die Schranke selbst gilt während der Fahrt nicht.
   // @returns {number} Zeit in ms bis zum Ende der Fahrt (inkl. Wartezeit)
   setOutside(on, delay = 0) {
     on = !!on;
     if (this.introPlaying || on === this.outsideRequested) return 0;
-    if (on && this.exploded) {
+    // Weg von der Hauptseite: eine Explosion vorher einklappen, sie gibt es nur dort.
+    if (this.exploded && on !== this.hauptAussen) {
       this.setExploded(false);
       delay = EXPLODE_DURATION;
     }
