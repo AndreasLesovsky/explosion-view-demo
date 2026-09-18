@@ -219,6 +219,20 @@ h3 {
   opacity: .7;
 }
 
+/* Telefon: neben Logo und "Neu scannen" ist kein Platz für beide Segmente und den Shop-Link.
+   Es bleibt das Segment des anderen Modells als Wechselknopf; welches Modell gerade zu sehen
+   ist, steht in der Seitenleiste. */
+@media (max-width: 576px) {
+  .nav__seg.is-on,
+  .nav:has(#modell-switch:not([hidden])) > a {
+    display: none;
+  }
+
+  .nav__seg {
+    padding: 6px 12px;
+  }
+}
+
 /* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
@@ -346,13 +360,14 @@ h3 {
   color: var(--ink-2);
 }
 
-/* Demo-Auswahl unter dem Scan-Knopf: welches Beispiel der simulierte Scan erkennt. Bewusst
-   klein und neben dem Demo-Hinweis, nicht als zweiter Handlungsaufruf. */
+/* Demo-Auswahl mittig über dem Scan-Knopf: welches Beispiel der simulierte Scan erkennt.
+   Bewusst klein, kein zweiter Handlungsaufruf. */
 .hero__demo {
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: center;
   gap: 8px;
-  margin-top: 22px;
+  margin: 0 0 20px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -397,7 +412,7 @@ h3 {
 }
 
 .hint {
-  margin-top: 14px;
+  margin-top: 18px;
   font-size: 13px;
   color: var(--muted);
 }

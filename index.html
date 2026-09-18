@@ -80,6 +80,12 @@
           erhalten ein interaktives 3D-Modell, in dem Sie jedes Bauteil antippen
           und passende Ersatzteile im Shop finden.
         </p>
+        <!-- Welches Beispiel der simulierte Scan "erkennt": Teil des Demo-Hinweises, nicht des Produkts. -->
+        <div class="hero__demo" role="radiogroup" aria-label="Beispiel für den simulierten Scan">
+          <span class="hero__demo-label">Beispiel:</span>
+          <label class="chip"><input type="radio" name="demo-modell" value="fenster" checked /><span>Fenster</span></label>
+          <label class="chip"><input type="radio" name="demo-modell" value="haustuer" /><span>Haustür</span></label>
+        </div>
         <button class="btn btn--primary btn--xl" id="btn-scan" type="button">
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -90,12 +96,6 @@
           </svg>
           <span>QR-Code scannen</span>
         </button>
-        <!-- Welches Beispiel der simulierte Scan "erkennt": Teil des Demo-Hinweises, nicht des Produkts. -->
-        <div class="hero__demo" role="radiogroup" aria-label="Beispiel für den simulierten Scan">
-          <span class="hero__demo-label">Beispiel:</span>
-          <label class="chip"><input type="radio" name="demo-modell" value="fenster" checked /><span>Fenster</span></label>
-          <label class="chip"><input type="radio" name="demo-modell" value="haustuer" /><span>Haustür</span></label>
-        </div>
         <p class="hint">
           Demo: Der Scan wird simuliert, es wird keine Kamera geöffnet.
         </p>
