@@ -216,6 +216,9 @@ export const FENSTER = {
   // Hauptseite: dort liegen Ruheansicht, Intro und Explosion; die andere Seite erreicht man über
   // den Ansichtsknopf. Fenster: innen.
   hauptseite: 'innen',
+  // Wo die Explosion zu sehen ist: 'innen' | 'aussen' (Viewer fährt vorher auf diese Seite,
+  // Seitenwechsel klappt ein) oder 'beide' (bleibt beim Seitenwechsel bestehen).
+  explosionSeite: 'innen',
   // Texte der Oberfläche.
   anrede: 'Ihr Fenster',
   titel: 'Dreh-Kipp-Fenster 1200 × 1400',
@@ -310,14 +313,14 @@ export const FENSTER = {
 const HAUSTUER_TEILE = {
   Druecker: {
     label: 'Innendrücker',
-    info: 'Innendrücker Edelstahl, Hebel 130 mm, dreht um die Spindelachse',
+    info: 'Innendrücker Edelstahl mit Chromhals, Rundprofil Ø 19 mm, 90°-Bogen, Hebel 120 mm, dreht um die Spindelachse',
     category: 'druecker',
     categoryLabel: 'Alle Drücker',
   },
   Druecker_Rosette: {
     hover: false,
     label: 'Drückerrosette',
-    info: 'Rosette des Innendrückers, Edelstahl Ø 52 mm',
+    info: 'Rundrosette Ø 52 mm, Edelstahl matt mit Chromring',
     category: 'druecker',
     categoryLabel: 'Alle Drücker',
   },
@@ -329,133 +332,133 @@ const HAUSTUER_TEILE = {
   },
   Zylinder: {
     label: 'Profilzylinder',
-    info: 'Motorzylinder mit Knauf innen, außen unter der Fingerprint-Blende, Ersatz ohne Blattwechsel',
+    info: 'Motorzylinder mit Rundrosette und Knauf innen, außen unter der Fingerprint-Blende, Ersatz ohne Blattwechsel',
     category: 'zylinder',
     categoryLabel: 'Alle Profilzylinder',
   },
   Fingerprint: {
     label: 'Fingerprint-Scanner',
-    info: 'Fingerprint-Leser in Edelstahlblende 130 × 60 mm, steuert den Motorzylinder, Sensorfenster 22 × 32 mm',
+    info: 'Fingerprint-Leser in Edelstahlblende 120 × 60 mm, steuert den Motorzylinder, Sensorfenster 22 × 32 mm',
     category: 'zutritt',
     categoryLabel: 'Alle Zutrittssysteme',
   },
   Falle: {
     label: 'Falle',
-    info: 'Schlossfalle, federnd, Ersatz bei Verschleiß',
+    info: 'Falle des Hauptschlosses, federnd, Ersatz bei Verschleiß',
     category: 'schloss',
     categoryLabel: 'Alle Schlossteile',
   },
   Riegel: {
-    label: 'Riegelbolzen',
-    info: 'Zwei Riegelbolzen der Mehrfachverriegelung, oben und unten',
+    label: 'Riegel',
+    info: 'Riegel des Hauptschlosses, 12 mm Ausschluss, 2-tourig',
+    category: 'schloss',
+    categoryLabel: 'Alle Schlossteile',
+  },
+  Zusatzschloss_oben: {
+    label: 'Zusatzschloss oben',
+    info: 'Zusatzschloss der Mehrfachverriegelung: Schwenkhaken und Bolzen, greift ins Schließblech',
+    category: 'schloss',
+    categoryLabel: 'Alle Schlossteile',
+  },
+  Zusatzschloss_unten: {
+    label: 'Zusatzschloss unten',
+    info: 'Zusatzschloss der Mehrfachverriegelung: Schwenkhaken und Bolzen, greift ins Schließblech',
     category: 'schloss',
     categoryLabel: 'Alle Schlossteile',
   },
   Stulp: {
     label: 'Schlossstulp',
-    info: 'Stulp der Mehrfachverriegelung, Edelstahl 24 × 2,5 mm, durchgehend',
+    info: 'Durchgehender Stulp der Mehrfachverriegelung, Edelstahl 17 × 2,5 mm',
     category: 'schloss',
     categoryLabel: 'Alle Schlossteile',
   },
   Schliessblech_oben: {
     label: 'Schließblech oben',
-    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt den oberen Riegel auf',
+    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt den Schwenkhaken des oberen Zusatzschlosses auf',
     category: 'schliessstuecke',
     categoryLabel: 'Alle Schließbleche',
   },
   Schliessblech_mitte: {
     label: 'Schließblech mitte',
-    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt die Falle auf',
+    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt Falle und Riegel auf',
     category: 'schliessstuecke',
     categoryLabel: 'Alle Schließbleche',
   },
   Schliessblech_unten: {
     label: 'Schließblech unten',
-    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt den unteren Riegel auf',
+    info: 'Schließblech im Rahmenfalz, Edelstahl, nimmt den Schwenkhaken des unteren Zusatzschlosses auf',
     category: 'schliessstuecke',
     categoryLabel: 'Alle Schließbleche',
   },
   Band_oben: {
     label: 'Band oben',
-    info: 'Verdeckt liegendes Band, rahmenseitiger Körper, 3D-verstellbar, geschlossen unsichtbar',
+    info: 'Aufsatzband für Aluminium-Haustüren, rahmenseitiges Teil, 3D-verstellbar, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Band_oben_Fluegel: {
     label: 'Band oben, Flügelteil',
-    info: 'Verdeckt liegendes Band, flügelseitiger Körper mit Lenkern, Edelstahl',
+    info: 'Aufsatzband, flügelseitiges Teil mit Bandbolzen, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Band_mitte: {
     label: 'Band mitte',
-    info: 'Verdeckt liegendes Band, rahmenseitiger Körper, 3D-verstellbar, geschlossen unsichtbar',
+    info: 'Aufsatzband für Aluminium-Haustüren, rahmenseitiges Teil, 3D-verstellbar, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Band_mitte_Fluegel: {
     label: 'Band mitte, Flügelteil',
-    info: 'Verdeckt liegendes Band, flügelseitiger Körper mit Lenkern, Edelstahl',
+    info: 'Aufsatzband, flügelseitiges Teil mit Bandbolzen, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Band_unten: {
     label: 'Band unten',
-    info: 'Verdeckt liegendes Band, rahmenseitiger Körper, 3D-verstellbar, geschlossen unsichtbar',
+    info: 'Aufsatzband für Aluminium-Haustüren, rahmenseitiges Teil, 3D-verstellbar, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Band_unten_Fluegel: {
     label: 'Band unten, Flügelteil',
-    info: 'Verdeckt liegendes Band, flügelseitiger Körper mit Lenkern, Edelstahl',
+    info: 'Aufsatzband, flügelseitiges Teil mit Bandbolzen, pulverbeschichtet weiß',
     category: 'baender',
     categoryLabel: 'Alle Türbänder',
   },
   Innendichtung: {
     label: 'Innendichtung',
-    info: 'Innere Falzdichtung auf der Rahmenstufe, EPDM, dichtet gegen die Innenschale',
+    info: 'Innere Falzdichtung auf der Rahmenstufe, EPDM, dreiseitig',
     category: 'dichtungen',
     categoryLabel: 'Alle Dichtungen',
   },
   Anschlagdichtung: {
     label: 'Anschlagdichtung außen',
-    info: 'Äußere Anschlagdichtung im Blendrahmen, EPDM, dichtet gegen die Außenschale',
+    info: 'Äußere Anschlagdichtung hinter dem Rahmenanschlag, EPDM, dreiseitig',
     category: 'dichtungen',
     categoryLabel: 'Alle Dichtungen',
   },
   Tuerblatt: {
     label: 'Türblatt',
-    info: 'Aluminium-Türblatt 104 mm, flügelüberdeckend, innen flächenbündig mit 6 mm Schattenfuge, außen RAL 7016, innen weiß',
+    info: 'Aluminium-Türblatt 90 mm, dreistufiges Falzprofil, außen flächenbündig im Rahmenanschlag, innen bündig mit 6 mm Schattenfuge, außen RAL 7016, innen weiß',
     category: 'tuerblaetter',
     categoryLabel: 'Alle Türblätter',
   },
   Dekorplatte: {
     label: 'Dekorplatte Eiche',
-    info: 'Echtholz-Applikation Eiche natur, 420 × 2106 mm, flächenbündig aufgesetzt',
+    info: 'Echtholz-Applikation Eiche natur, 347 × 2033 mm, 3 mm aufgesetzt',
     category: 'fuellungen',
     categoryLabel: 'Alle Dekorplatten',
   },
-  Rahmen_links: {
-    label: 'Blendrahmen links',
-    info: 'Aluminium-Blendrahmen mit Stufenfalz, 90 mm Bautiefe, innen 44 mm Ansicht, außen vom Flügel überdeckt',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-  Rahmen_rechts: {
-    label: 'Blendrahmen rechts',
-    info: 'Aluminium-Blendrahmen mit Stufenfalz, 90 mm Bautiefe, innen 44 mm Ansicht, außen vom Flügel überdeckt',
-    category: 'blendrahmen',
-    categoryLabel: 'Alle Blendrahmen',
-  },
-  Rahmen_oben: {
-    label: 'Blendrahmen oben',
-    info: 'Aluminium-Blendrahmen mit Stufenfalz, 90 mm Bautiefe, innen 44 mm Ansicht, außen vom Flügel überdeckt',
+  Rahmen: {
+    label: 'Blendrahmen',
+    info: 'Aluminium-Blendrahmen, ein Stück, Stufenfalz nach AT500-Prinzip, 90 mm Bautiefe, außen 75 mm Anschlag, innen 44 mm, außen RAL 7016, innen weiß',
     category: 'blendrahmen',
     categoryLabel: 'Alle Blendrahmen',
   },
   Schwelle: {
     label: 'Schwelle',
-    info: 'Aluminium-Bodenschwelle 20 mm, thermisch getrennt, barrierearm',
+    info: 'Aluminium-Bodenschwelle 20 mm, durchgehend 1100 mm, thermisch getrennt, barrierearm',
     category: 'schwellen',
     categoryLabel: 'Alle Schwellen',
   },
@@ -466,14 +469,18 @@ export const HAUSTUER = {
   url: './haustuer.glb',
   root: 'Tuer',
   // Die meisten Bauteile einer Haustür sitzen außen (Stoßgriff, Fingerprint, Dekorplatte, die
-  // Ansichtsfläche des Blatts): Ruheansicht, Intro und Explosion liegen vor der Fassade.
+  // Ansichtsfläche des Blatts): Ruheansicht und Intro liegen vor der Fassade. Die Explosion geht
+  // vom Blatt aus nach beiden Seiten und bleibt beim Seitenwechsel bestehen: von außen sieht man
+  // die Außenteile, von innen Drücker, Bänder und Innendichtung.
   hauptseite: 'aussen',
+  explosionSeite: 'beide',
   anrede: 'Ihre Haustür',
   titel: 'Haustür Aluminium 1100 × 2200',
   nummer: 'HT-2026-0930',
   scanZeile: 'Haustür HT-2026-0930',
   canvasLabel: '3D-Modell der Haustür',
-  // Türblatt dreht um die Bandachse rechts in den Raum; Kippen gibt es nicht.
+  // Türblatt dreht um die Achse der Aufsatzbänder (Custom Property `pivot`, 17 mm vor der
+  // Innenfläche) in den Raum; Kippen gibt es nicht.
   fluegel: { name: 'Tuerblatt', winkel: 60, oeffnen: 'Tür öffnen', kippen: null },
   // Der Drücker liegt waagerecht und zeigt zur Türmitte (+x, zur Bandseite hin); Drücken heißt
   // nach unten, vom Raum aus gesehen im Uhrzeigersinn, also negativ um +z: Richtung -1, 38 Grad.
@@ -481,12 +488,8 @@ export const HAUSTUER = {
   schere: null,
   bandMuster: /^Band_(oben|mitte|unten)/,
   fensterbank: null,
-  // Das GLB hat (noch) keine Wand: der Viewer stellt eine verputzte Ersatzwand mit Öffnung um
-  // die Tür, damit Innen-/Außenansicht, Laibung und Kameragrenzen wie beim Fenster funktionieren.
-  // Liegt im GLB ein Node "Wand", hat er Vorrang.
+  // Wand mit Öffnung als Node im GLB, wie beim Fenster; die Tür sitzt außen bündig in der Fassade.
   wand: 'Wand',
-  // Edelstahl zählt hier als Beschlag: Bänder, Drücker, Zylinder liegen in der Explosion
-  // seitlich neben dem Türblatt statt darin zu verschwinden.
   hardwareMaterialien: ['Beschlag_Stahl', 'Edelstahl'],
   statisch: new Set(),
   teile: HAUSTUER_TEILE,
@@ -502,56 +505,63 @@ export const HAUSTUER = {
   reihenfolge: [
     'Druecker', 'Stossgriff', 'Schliessblech_oben', 'Schliessblech_mitte', 'Schliessblech_unten',
     'Band_oben', 'Band_oben_Fluegel', 'Band_mitte', 'Band_mitte_Fluegel', 'Band_unten', 'Band_unten_Fluegel',
-    'Zylinder', 'Fingerprint', 'Falle', 'Riegel', 'Stulp',
+    'Zylinder', 'Fingerprint', 'Falle', 'Riegel', 'Zusatzschloss_oben', 'Zusatzschloss_unten', 'Stulp',
     'Innendichtung', 'Anschlagdichtung',
-    'Tuerblatt', 'Dekorplatte', 'Rahmen_links', 'Rahmen_rechts', 'Rahmen_oben', 'Schwelle',
+    'Tuerblatt', 'Dekorplatte', 'Rahmen', 'Schwelle',
   ],
-  // Die Explosion liegt vor der Fassade (hauptseite aussen); +z in dieser Tabelle heißt "zur
-  // Kamera", der Viewer spiegelt es auf -z. Ebenen von der Wand nach außen: Blendrahmen und
-  // Schwelle (auseinander), die Schließbleche bleiben auf dem linken Rahmen, innere und äußere
-  // Dichtung, dann das Türblatt mit den Bändern daneben (von außen links) und den Schlossteilen
-  // auf der anderen Seite; davor Zylinder, Dekorplatte, Stoßgriff und ganz vorn der Fingerprint.
-  // Der Innendrücker liegt neben der Schlosskante in der Blattebene, damit er von außen zu sehen
-  // ist. Die Werte sind so gewählt, dass sich keine zwei Teile berühren und nichts hinter einem
-  // größeren Teil verschwindet (nachgemessen über die Explosions-Boxen).
+  // Versatz in Metern, lokal zu "Tuer" (z: + in den Raum, - zur Straße). Vorher hebt der Hub die
+  // ganze Tür vor die Fassade. Der Blendrahmen ist ein Stück und bleibt auf dem Hub stehen; das
+  // Blatt gleitet aus seinem Falz nach innen (nach außen sperrt der 75-mm-Anschlag), die
+  // Schlossteile bleiben in seiner Kante (seitlich wären die Schließbleche im Weg). Was innen am
+  // Blatt oder am Rahmen sitzt, geht nach innen (Drücker, Aufsatzbänder), was außen sitzt, nach
+  // außen (Dekorplatte, Stoßgriff); Zylinder und Fingerprint-Blende gleiten als Einheit aus der
+  // Bohrung nach außen. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel und
+  // Haken ragen unter ihr aus der Blattkante, jeder andere Weg schöbe sie durch die Dichtung. Die
+  // Anschlagdichtung sitzt hinter dem Anschlag fest und die Schließbleche im Rahmenfalz, beide
+  // bleiben beim Rahmen.
+  // Nachgemessen (Scheitelpunkte gegen Volumen, jede Phase abgetastet): keine Durchdringung, die
+  // nicht schon im montierten Zustand besteht (Zylinder in seiner Bohrung, Bolzen im Schließblech).
   versatz: {
-    Rahmen_links:        [-0.28, 0, 0],
-    Rahmen_rechts:       [ 0.28, 0, 0],
-    Rahmen_oben:         [ 0, 0.28, 0],
-    Schwelle:            [ 0, -0.28, 0],
-    Schliessblech_oben:  [-0.28, 0, 0],
-    Schliessblech_mitte: [-0.28, 0, 0],
-    Schliessblech_unten: [-0.28, 0, 0],
-    Innendichtung:       [ 0, 0, 0.08],
-    Anschlagdichtung:    [ 0, 0, 0.16],
-    Tuerblatt:           [ 0, 0, 0.3],
-    Band_oben_Fluegel:   [ 0.7, 0, 0.3],
-    Band_mitte_Fluegel:  [ 0.7, 0, 0.3],
-    Band_unten_Fluegel:  [ 0.7, 0, 0.3],
-    Band_oben:           [ 0.78, 0, 0.3],
-    Band_mitte:          [ 0.78, 0, 0.3],
-    Band_unten:          [ 0.78, 0, 0.3],
-    Stulp:               [-0.62, 0, 0.3],
-    Riegel:              [-0.62, 0, 0.3],
-    Falle:               [-0.62, 0, 0.3],
-    Druecker:            [-0.28, 0, 0.3],
-    Zylinder:            [-0.2, 0, 0.45],
-    Dekorplatte:         [ 0, 0, 0.5],
-    Stossgriff:          [ 0, 0, 0.7],
-    Fingerprint:         [ 0, 0, 0.9],
+    Rahmen:              [ 0, 0, 0],
+    Schwelle:            [ 0, -0.1, 0],
+    Schliessblech_oben:  [ 0, 0, 0],
+    Schliessblech_mitte: [ 0, 0, 0],
+    Schliessblech_unten: [ 0, 0, 0],
+    Anschlagdichtung:    [ 0, 0, 0],
+    Innendichtung:       [ 0, 0, 0.15],
+    Tuerblatt:           [ 0, 0, 0.15],
+    Stulp:               [ 0, 0, 0.15],
+    Falle:               [ 0, 0, 0.15],
+    Riegel:              [ 0, 0, 0.15],
+    Zusatzschloss_oben:  [ 0, 0, 0.15],
+    Zusatzschloss_unten: [ 0, 0, 0.15],
+    Band_oben_Fluegel:   [ 0, 0, 0.25],
+    Band_mitte_Fluegel:  [ 0, 0, 0.25],
+    Band_unten_Fluegel:  [ 0, 0, 0.25],
+    Band_oben:           [ 0, 0, 0.25],
+    Band_mitte:          [ 0, 0, 0.25],
+    Band_unten:          [ 0, 0, 0.25],
+    Druecker:            [ 0, 0, 0.25],
+    Zylinder:            [ 0, 0, -0.03],
+    Fingerprint:         [ 0, 0, -0.03],
+    Dekorplatte:         [ 0, 0, -0.05],
+    Stossgriff:          [ 0, 0, -0.15],
   },
+  // Reihenfolge im Intro: Rahmen zuerst, dann Schwelle, Anschlagdichtung und Schließbleche, das
+  // Blatt samt Innendichtung und Schlossteilen (gleiche Verzögerung, sie fahren mit ihm), danach
+  // Bänder, Außenteile, Zylinder mit Blende und zuletzt der Drücker. Alles, was am Blatt montiert
+  // ist, startet nach dem Blatt, damit es ihm nie in die Quere kommt.
   introVerzoegerung: {
-    Rahmen_links: 0, Rahmen_rechts: 0, Rahmen_oben: 0.06, Schwelle: 0.06,
+    Rahmen: 0, Schwelle: 0.06,
     Schliessblech_oben: 0.1, Schliessblech_mitte: 0.1, Schliessblech_unten: 0.1,
-    Anschlagdichtung: 0.12, Innendichtung: 0.16,
-    Tuerblatt: 0.2, Dekorplatte: 0.24,
-    Band_oben: 0.25, Band_mitte: 0.25, Band_unten: 0.25,
+    Anschlagdichtung: 0.12,
+    Tuerblatt: 0.2, Innendichtung: 0.2, Stulp: 0.2, Falle: 0.2, Riegel: 0.2, Zusatzschloss_oben: 0.2, Zusatzschloss_unten: 0.2,
+    Dekorplatte: 0.24, Band_oben: 0.25, Band_mitte: 0.25, Band_unten: 0.25,
     Band_oben_Fluegel: 0.28, Band_mitte_Fluegel: 0.28, Band_unten_Fluegel: 0.28,
-    Stulp: 0.3, Riegel: 0.3, Falle: 0.3, Stossgriff: 0.32, Fingerprint: 0.36,
-    Zylinder: 0.42, Druecker: 0.5,
+    Stossgriff: 0.32, Fingerprint: 0.4, Zylinder: 0.4, Druecker: 0.5,
   },
   buendig: {
-    Schliessblech_oben:  [0.0008, 0, 0],   // bündig auf der Falzfläche des linken Blendrahmens
+    Schliessblech_oben:  [0.0008, 0, 0],   // bündig auf der Falzfläche des Blendrahmens
     Schliessblech_mitte: [0.0008, 0, 0],
     Schliessblech_unten: [0.0008, 0, 0],
   },

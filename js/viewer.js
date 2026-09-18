@@ -695,7 +695,7 @@ export class WindowViewer {
     // Das geladene GLB ist ein geteilter Zwischenspeicher (preloadModel): jeder Viewer arbeitet
     // auf einer eigenen Kopie des Szenengraphen. Sonst stünden beim nächsten Viewer desselben
     // Modells die Teile schon in der letzten Pose, die Millimeterversätze wären doppelt und die
-    // zerlegte Wand samt Ersatzwand läge zweimal in der Szene. Geometrien und Materialien teilt
+    // zerlegte Wand läge zweimal in der Szene. Geometrien und Materialien teilt
     // die Kopie; was verändert wird (Wandfarbe, Kunststoff, Glas, Fensterbank), wird vorher geklont.
     const root = gltf.scene.clone(true);
     const modell = this.modell;
@@ -763,14 +763,8 @@ export class WindowViewer {
     this.box.getCenter(this.homeTarget);
     this.pivot.copy(this.homeTarget);
     const size = this.box.getSize(new THREE.Vector3());
-    // Ohne Wand im GLB steht eine verputzte Ersatzwand um die Baugruppe (Türmodell): Laibung,
-    // Kameragrenzen, Himmel und Außenfahrt brauchen sie wie beim Fenster.
-    let wand = root.getObjectByName(modell.wand);
-    if (!wand) {
-      wand = makeErsatzwand(this.box);
-      root.add(wand);
-    }
-    const wandBox = new THREE.Box3().setFromObject(wand);
+    const wand = root.getObjectByName(modell.wand);
+    const wandBox = new THREE.Box3().setFromObject(wand || root);
     const wandSize = wandBox.getSize(new THREE.Vector3());
     this.wallFaceZ = wandBox.max.z;
     this.wallOuterZ = wandBox.min.z;
@@ -789,9 +783,11 @@ export class WindowViewer {
       obj.userData.partBox = pb;
       let hardware = false;
       obj.traverse((o) => { if (o.isMesh && o.material && modell.hardwareMaterialien.includes(o.material.name)) hardware = true; });
-      const versatz = modell.versatz[name] || mountOffset(obj.userData.mount, c, hardware);
-      // Die Tabellen sind "zur Kamera der Hauptseite" notiert: außen zeigt ihr +z nach -z.
-      obj.userData.explodeOffset = this.hauptAussen ? [versatz[0], versatz[1], -versatz[2]] : versatz;
+      // Tabellenwerte gelten lokal (z: + in den Raum). Nur die Vorgaben je `mount` sind für ein
+      // Modell mit Hauptseite innen gedacht; außen zeigt ihr +z zur Kamera, also nach -z.
+      const tabelle = modell.versatz[name];
+      const vorgabe = tabelle ? null : mountOffset(obj.userData.mount, c, hardware);
+      obj.userData.explodeOffset = tabelle || (this.hauptAussen ? [vorgabe[0], vorgabe[1], -vorgabe[2]] : vorgabe);
       obj.userData.introDelay = modell.introVerzoegerung[name] ?? MOUNT_INTRO_DELAY[obj.userData.mount] ?? 0;
     }
     for (const { obj, host } of this.attached) {
@@ -876,10 +872,7 @@ export class WindowViewer {
     this.explodeShift = this.explodedCenter.z - this.homeTarget.z;
     // Mindestabstand in der Explosion: bis vor die vordersten Teile, plus Reserve, damit die
     // Kamera beim Kreisen um die Baugruppe nie in ein Teil gerät.
-    const vorn = this.hauptAussen
-      ? this.explodedCenter.z - this.explodedBox.min.z
-      : this.explodedBox.max.z - this.explodedCenter.z;
-    this.explodeMinDist = Math.max(MIN_DIST, vorn + 0.15);
+    this.explosionsMasse();
     // Grenzen des Blickpunkt-Schwenks aus der Fenstergröße: der Blickpunkt darf bis auf die
     // Kante wandern, nicht darüber hinaus. Sonst zielt die Kamera neben die Öffnung und sieht
     // nur noch Wand. Wie schnell die Grenze erreicht wird, regeln xFrame und yFrame*.
@@ -1152,10 +1145,7 @@ export class WindowViewer {
 
     this.homeDist = this.computeHomeDistance();
     // Explosion: Box darf das Bild fast füllen, die äußersten Ecken sind nur Rahmenenden.
-    this.explodeDist = this.explodedBox
-      ? this.computeFitDistance(this.explodedBox, 0.92, this.hauptAussen ? this.outsideDir : this.insideDir)
-      : this.homeDist * 1.3;
-    this.controls.maxDistance = Math.max(this.homeDist * 2.4, this.explodeDist * 1.2);
+    this.explosionsMasse();
     if (!this.userInteracted && !this.hasTween('camera')) this.placeAtStandardPose();
     this.needsRender = true;
   }
@@ -2312,11 +2302,11 @@ export class WindowViewer {
     // Eine laufende Fokusfahrt zu Ende fahren lassen (siehe cancelCameraTweens).
     delay = Math.max(delay, this.restFokusFahrt());
     this.cancelCameraTweens(true);
-    // Die Explosion gibt es nur auf der Hauptseite des Modells (Fenster innen, Haustür außen):
-    // von der anderen Seite erst hinüberfahren.
+    // Explosion nur auf einer Seite (Fenster: innen)? Dann von der anderen erst hinüberfahren.
     let switchedSide = false;
-    if (on && (this.outside !== this.hauptAussen || this.outsideRequested !== this.hauptAussen)) {
-      delay = Math.max(delay, this.setOutside(this.hauptAussen));
+    const seite = this.explosionSeite();
+    if (on && seite !== null && (this.outside !== seite || this.outsideRequested !== seite)) {
+      delay = Math.max(delay, this.setOutside(seite));
       switchedSide = true;
     }
     this.exploded = !!on;
@@ -2393,6 +2383,13 @@ export class WindowViewer {
     return this.exploded;
   }
 
+  // Seite, auf der es die Explosion allein gibt (true außen, false innen), oder null, wenn sie
+  // auf beiden Seiten stehen bleibt (Tür: die Teile gehen vom Blatt aus nach beiden Seiten).
+  explosionSeite() {
+    const s = this.modell.explosionSeite || (this.hauptAussen ? 'aussen' : 'innen');
+    return s === 'beide' ? null : s === 'aussen';
+  }
+
   toggleExplode() {
     return this.setExploded(!this.exploded);
   }
@@ -2411,8 +2408,9 @@ export class WindowViewer {
   setOutside(on, delay = 0) {
     on = !!on;
     if (this.introPlaying || on === this.outsideRequested) return 0;
-    // Weg von der Hauptseite: eine Explosion vorher einklappen, sie gibt es nur dort.
-    if (this.exploded && on !== this.hauptAussen) {
+    // Weg von der Seite, auf der es die Explosion allein gibt: vorher einklappen.
+    const seite = this.explosionSeite();
+    if (this.exploded && seite !== null && on !== seite) {
       this.setExploded(false);
       delay = EXPLODE_DURATION;
     }
@@ -2521,6 +2519,22 @@ export class WindowViewer {
   applyViewSide() {
     this.homeDir.copy(this.outside ? this.outsideDir : this.insideDir);
     if (this.box) this.homeDist = this.computeHomeDistance();
+    this.explosionsMasse();
+  }
+
+  // Kameramaße der Explosion für die aktuelle Seite: Abstand, mit dem die explodierte Box ins
+  // Bild passt (sie darf es fast füllen, die äußersten Ecken sind nur Rahmenenden), und der
+  // Mindestabstand vor den Teilen, die der Kamera am nächsten liegen.
+  explosionsMasse() {
+    if (!this.explodedBox) {
+      this.explodeDist = this.homeDist * 1.3;
+      return;
+    }
+    this.explodeDist = this.computeFitDistance(this.explodedBox, 0.92);
+    const c = this.explodedCenter;
+    const vorn = this.outside ? c.z - this.explodedBox.min.z : this.explodedBox.max.z - c.z;
+    this.explodeMinDist = Math.max(MIN_DIST, vorn + 0.15);
+    if (this.controls) this.controls.maxDistance = Math.max(this.homeDist * 2.4, this.explodeDist * 1.2);
   }
 
   resetView() {
@@ -2994,39 +3008,6 @@ function mountOffset(mount, c, hardware = false) {
     return Math.abs(c.x) > Math.abs(c.y) ? [Math.sign(c.x) * s, 0, 0] : [0, Math.sign(c.y) * s, 0];
   }
   return [0, 0, 0];
-}
-
-// Ersatzwand für Modelle ohne Node "Wand": zwei Pfeiler und ein Sturz aus mattem Putz um die
-// Öffnung, die die Baugruppe mit 1 cm Fuge freilässt. Maße wie die Wand des Fenstermodells
-// (46 cm dick, Innenfläche bei z = 0.26, Außenfläche bei −0.20), damit Laibung, Kameragrenzen
-// und die Fahrt um die Wandkante unverändert funktionieren. Steht auf der Unterkante der
-// Baugruppe (Tür: Schwelle bei y = 0), die Öffnung reicht bis zum Boden.
-// @param {THREE.Box3} box Baugruppe (Welt)
-function makeErsatzwand(box) {
-  const fuge = 0.01;
-  const innenZ = 0.26, aussenZ = -0.20;
-  const tiefe = innenZ - aussenZ, mitteZ = (innenZ + aussenZ) / 2;
-  const mitteX = (box.min.x + box.max.x) / 2;
-  const halb = Math.max(3.4, box.max.x - box.min.x + 2.4) / 2;
-  const boden = box.min.y;
-  const decke = Math.max(boden + 2.6, box.max.y + 0.4);
-  const links = box.min.x - fuge, rechts = box.max.x + fuge, oben = box.max.y + fuge;
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf0ece5, roughness: 0.92, metalness: 0 });
-  mat.name = 'Wand_innen';
-  const wand = new THREE.Group();
-  wand.name = 'Wand';
-  const quader = (name, x0, x1, y0, y1) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, tiefe), mat);
-    m.name = name;
-    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, mitteZ);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    wand.add(m);
-  };
-  quader('Wand_links', mitteX - halb, links, boden, decke);
-  quader('Wand_rechts', rechts, mitteX + halb, boden, decke);
-  quader('Wand_sturz', links, rechts, oben, decke);
-  return wand;
 }
 
 // Öffnung in der Wand als Box3 (x/y), abgeleitet aus den Wand-Vertices nahe den Fensterkanten:
