@@ -2,3 +2,5 @@
 .claude
 node_modules/
 .htaccess
+# README gehoert ins Repo, die uebrigen Notizen (*.md) bleiben lokal.
+!README.md
