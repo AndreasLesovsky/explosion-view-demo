@@ -474,6 +474,10 @@ export const HAUSTUER = {
   // die Außenteile, von innen Drücker, Bänder und Innendichtung.
   hauptseite: 'aussen',
   explosionSeite: 'beide',
+  // Spreizung in zwei Schritten: erst alle Tiefenwege (z), dann die seitlichen (x/y). Nur so
+  // kommen die Schlossteile aus der Blattkante: seitlich steht die Rahmenwange im Weg, bis das
+  // Blatt hinter dem Rahmen ist.
+  spreizung: 'erst-tiefe',
   // Hub der Explosion in Metern (fest statt aus der Wanddicke): so weit vor die Fassade, dass
   // auch Drücker und Bänder, die vom Blatt aus nach innen gehen, frei vor der Wand stehen.
   hub: 0.7,
@@ -517,12 +521,15 @@ export const HAUSTUER = {
   // Blatt gleitet aus seinem Falz nach innen (nach außen sperrt der 75-mm-Anschlag), die
   // Schlossteile bleiben in seiner Kante (seitlich wären die Schließbleche im Weg). Was innen am
   // Blatt oder am Rahmen sitzt, geht nach innen (Drücker, Aufsatzbänder), was außen sitzt, nach
-  // außen (Dekorplatte, Stoßgriff); Zylinder und Fingerprint-Blende gleiten als Einheit aus der
-  // Bohrung nach außen. Nach außen vor den Rahmen kann das Blatt nicht: die Anschlaglippe des
-  // einteiligen Rahmens greift 9 mm über seine Mittelstufe. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel und
-  // Haken ragen unter ihr aus der Blattkante, jeder andere Weg schöbe sie durch die Dichtung. Die
-  // Anschlagdichtung sitzt hinter dem Anschlag fest und die Schließbleche im Rahmenfalz, beide
-  // bleiben beim Rahmen.
+  // außen (Dekorplatte, Stoßgriff); der Zylinder gleitet aus seiner Bohrung nach außen, die
+  // Fingerprint-Blende von seinem Ende (die einzige Stelle, an der ein Teil durch ein anderes
+  // gleitet: die Blende über den Zylinderzapfen, ihre Bohrung ist im Netz nicht modelliert). Nach
+  // außen vor den Rahmen kann das Blatt nicht: die Anschlaglippe des einteiligen Rahmens greift
+  // 9 mm über seine Mittelstufe. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel
+  // und Haken ragen unter ihr aus der Blattkante, jeder andere Weg schöbe sie durch die Dichtung;
+  // die Schlossteile gehen danach 30 cm seitlich aus der Kante (zweiter Schritt, siehe
+  // `spreizung`). Die Anschlagdichtung löst sich langsamer als das Blatt nach innen aus dem
+  // Anschlag, die Schließbleche bleiben im Rahmenfalz.
   // Nachgemessen (Scheitelpunkte gegen Volumen, jede Phase abgetastet): keine Durchdringung, die
   // nicht schon im montierten Zustand besteht (Zylinder in seiner Bohrung, Bolzen im Schließblech).
   versatz: {
@@ -531,14 +538,16 @@ export const HAUSTUER = {
     Schliessblech_oben:  [ 0, 0, 0],
     Schliessblech_mitte: [ 0, 0, 0],
     Schliessblech_unten: [ 0, 0, 0],
-    Anschlagdichtung:    [ 0, 0, 0],
+    Anschlagdichtung:    [ 0, 0, 0.08],
     Innendichtung:       [ 0, 0, 0.22],
     Tuerblatt:           [ 0, 0, 0.22],
-    Stulp:               [ 0, 0, 0.22],
-    Falle:               [ 0, 0, 0.22],
-    Riegel:              [ 0, 0, 0.22],
-    Zusatzschloss_oben:  [ 0, 0, 0.22],
-    Zusatzschloss_unten: [ 0, 0, 0.22],
+    // 1 cm weniger tief als das Blatt: so bleiben sie unter der Innendichtung, statt beim
+    // seitlichen Schritt durch deren Schenkel zu fahren.
+    Stulp:               [-0.3, 0, 0.21],
+    Falle:               [-0.3, 0, 0.21],
+    Riegel:              [-0.3, 0, 0.21],
+    Zusatzschloss_oben:  [-0.3, 0, 0.21],
+    Zusatzschloss_unten: [-0.3, 0, 0.21],
     Band_oben_Fluegel:   [ 0, 0, 0.4],
     Band_mitte_Fluegel:  [ 0, 0, 0.4],
     Band_unten_Fluegel:  [ 0, 0, 0.4],
@@ -547,7 +556,7 @@ export const HAUSTUER = {
     Band_unten:          [ 0, 0, 0.4],
     Druecker:            [ 0, 0, 0.42],
     Zylinder:            [ 0, 0, -0.1],
-    Fingerprint:         [ 0, 0, -0.1],
+    Fingerprint:         [ 0, 0, -0.2],
     Dekorplatte:         [ 0, 0, -0.16],
     Stossgriff:          [ 0, 0, -0.3],
   },

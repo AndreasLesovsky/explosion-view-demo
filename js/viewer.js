@@ -2109,6 +2109,7 @@ export class WindowViewer {
     const qHandle = this.handleReady && this.handlePivot && this.handleAngle !== 0
       ? this._qTmp3.setFromAxisAngle(Z_AXIS, this.handleSign * this.handleAngle) : null;
     const axis = this._vTmp;
+    const erstTiefe = this.modell.spreizung === 'erst-tiefe';
     const placeObj = (name, obj, role) => {
       const base = obj.userData.basePosition;
       if (!base) return;
@@ -2119,7 +2120,13 @@ export class WindowViewer {
       }
       const off = obj.userData.explodeOffset || [0, 0, 0];
       const f = this.partFactor.get(name) ?? 0;
-      obj.position.set(base.x + off[0] * f, base.y + off[1] * f, base.z + lift + off[2] * f);
+      // Spreizung in zwei Schritten (Tür): erst die Tiefe (z), dann seitlich (x/y). Die
+      // Schlossteile müssen mit dem Blatt aus dem Rahmenfalz heraus sein, bevor sie seitlich
+      // an der Rahmenwange vorbei können; beim Zusammenbau (f von 1 nach 0) läuft es von selbst
+      // umgekehrt: erst seitlich in die Kante, dann mit dem Blatt in den Falz.
+      const fz = erstTiefe ? clamp(f * 2, 0, 1) : f;
+      const fxy = erstTiefe ? clamp(f * 2 - 1, 0, 1) : f;
+      obj.position.set(base.x + off[0] * fxy, base.y + off[1] * fxy, base.z + lift + off[2] * fz);
       obj.quaternion.copy(obj.userData.baseQuaternion || IDENTITY_Q);
       // Mit dem Flügel bewegen sich nur Teile mit mount sash. Bandseitige Teile am
       // Blendrahmen (mount hinge: Ecklager, Scherenlager) bleiben stehen; ihre flügelseitigen
