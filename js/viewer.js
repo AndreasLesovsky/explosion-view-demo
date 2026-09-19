@@ -772,9 +772,12 @@ export class WindowViewer {
     this.floorY = wandBox.min.y;
     // So weit zur Hauptseite, dass der Blendrahmen in der Explosion komplett vor der Wandfläche
     // liegt: innen in den Raum (+z), außen vor die Fassade (-z).
-    this.explodeLift = this.hauptAussen
-      ? -Math.max(0.2, this.box.max.z - wandBox.min.z + 0.06)
-      : Math.max(0.2, wandBox.max.z - this.box.min.z + 0.06);
+    // `modell.hub` setzt den Weg fest (Tür: deutlich vor die Fassade, damit auch die nach innen
+    // explodierenden Teile frei vor der Wand stehen).
+    const hub = modell.hub ?? (this.hauptAussen
+      ? Math.max(0.2, this.box.max.z - wandBox.min.z + 0.06)
+      : Math.max(0.2, wandBox.max.z - this.box.min.z + 0.06));
+    this.explodeLift = this.hauptAussen ? -hub : hub;
     // Explosionsversatz je Teil: Tabelle, sonst aus `mount` und Lage abgeleitet.
     const winCenter = this.box.getCenter(new THREE.Vector3());
     for (const [name, obj] of this.parts) {

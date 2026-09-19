@@ -474,6 +474,9 @@ export const HAUSTUER = {
   // die Außenteile, von innen Drücker, Bänder und Innendichtung.
   hauptseite: 'aussen',
   explosionSeite: 'beide',
+  // Hub der Explosion in Metern (fest statt aus der Wanddicke): so weit vor die Fassade, dass
+  // auch Drücker und Bänder, die vom Blatt aus nach innen gehen, frei vor der Wand stehen.
+  hub: 0.6,
   anrede: 'Ihre Haustür',
   titel: 'Haustür Aluminium 1100 × 2200',
   nummer: 'HT-2026-0930',
@@ -510,7 +513,7 @@ export const HAUSTUER = {
     'Tuerblatt', 'Dekorplatte', 'Rahmen', 'Schwelle',
   ],
   // Versatz in Metern, lokal zu "Tuer" (z: + in den Raum, - zur Straße). Vorher hebt der Hub die
-  // ganze Tür vor die Fassade. Der Blendrahmen ist ein Stück und bleibt auf dem Hub stehen; das
+  // ganze Tür 60 cm vor die Fassade. Der Blendrahmen ist ein Stück und bleibt auf dem Hub stehen; das
   // Blatt gleitet aus seinem Falz nach innen (nach außen sperrt der 75-mm-Anschlag), die
   // Schlossteile bleiben in seiner Kante (seitlich wären die Schließbleche im Weg). Was innen am
   // Blatt oder am Rahmen sitzt, geht nach innen (Drücker, Aufsatzbänder), was außen sitzt, nach
