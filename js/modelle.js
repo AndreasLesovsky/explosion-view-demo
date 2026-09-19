@@ -476,7 +476,7 @@ export const HAUSTUER = {
   explosionSeite: 'beide',
   // Hub der Explosion in Metern (fest statt aus der Wanddicke): so weit vor die Fassade, dass
   // auch Drücker und Bänder, die vom Blatt aus nach innen gehen, frei vor der Wand stehen.
-  hub: 0.6,
+  hub: 0.7,
   anrede: 'Ihre Haustür',
   titel: 'Haustür Aluminium 1100 × 2200',
   nummer: 'HT-2026-0930',
@@ -513,12 +513,13 @@ export const HAUSTUER = {
     'Tuerblatt', 'Dekorplatte', 'Rahmen', 'Schwelle',
   ],
   // Versatz in Metern, lokal zu "Tuer" (z: + in den Raum, - zur Straße). Vorher hebt der Hub die
-  // ganze Tür 60 cm vor die Fassade. Der Blendrahmen ist ein Stück und bleibt auf dem Hub stehen; das
+  // ganze Tür 70 cm vor die Fassade. Der Blendrahmen ist ein Stück und bleibt auf dem Hub stehen; das
   // Blatt gleitet aus seinem Falz nach innen (nach außen sperrt der 75-mm-Anschlag), die
   // Schlossteile bleiben in seiner Kante (seitlich wären die Schließbleche im Weg). Was innen am
   // Blatt oder am Rahmen sitzt, geht nach innen (Drücker, Aufsatzbänder), was außen sitzt, nach
   // außen (Dekorplatte, Stoßgriff); Zylinder und Fingerprint-Blende gleiten als Einheit aus der
-  // Bohrung nach außen. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel und
+  // Bohrung nach außen. Nach außen vor den Rahmen kann das Blatt nicht: die Anschlaglippe des
+  // einteiligen Rahmens greift 9 mm über seine Mittelstufe. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel und
   // Haken ragen unter ihr aus der Blattkante, jeder andere Weg schöbe sie durch die Dichtung. Die
   // Anschlagdichtung sitzt hinter dem Anschlag fest und die Schließbleche im Rahmenfalz, beide
   // bleiben beim Rahmen.
@@ -526,29 +527,29 @@ export const HAUSTUER = {
   // nicht schon im montierten Zustand besteht (Zylinder in seiner Bohrung, Bolzen im Schließblech).
   versatz: {
     Rahmen:              [ 0, 0, 0],
-    Schwelle:            [ 0, -0.1, 0],
+    Schwelle:            [ 0, -0.14, 0],
     Schliessblech_oben:  [ 0, 0, 0],
     Schliessblech_mitte: [ 0, 0, 0],
     Schliessblech_unten: [ 0, 0, 0],
     Anschlagdichtung:    [ 0, 0, 0],
-    Innendichtung:       [ 0, 0, 0.15],
-    Tuerblatt:           [ 0, 0, 0.15],
-    Stulp:               [ 0, 0, 0.15],
-    Falle:               [ 0, 0, 0.15],
-    Riegel:              [ 0, 0, 0.15],
-    Zusatzschloss_oben:  [ 0, 0, 0.15],
-    Zusatzschloss_unten: [ 0, 0, 0.15],
-    Band_oben_Fluegel:   [ 0, 0, 0.25],
-    Band_mitte_Fluegel:  [ 0, 0, 0.25],
-    Band_unten_Fluegel:  [ 0, 0, 0.25],
-    Band_oben:           [ 0, 0, 0.25],
-    Band_mitte:          [ 0, 0, 0.25],
-    Band_unten:          [ 0, 0, 0.25],
-    Druecker:            [ 0, 0, 0.25],
-    Zylinder:            [ 0, 0, -0.03],
-    Fingerprint:         [ 0, 0, -0.03],
-    Dekorplatte:         [ 0, 0, -0.05],
-    Stossgriff:          [ 0, 0, -0.15],
+    Innendichtung:       [ 0, 0, 0.22],
+    Tuerblatt:           [ 0, 0, 0.22],
+    Stulp:               [ 0, 0, 0.22],
+    Falle:               [ 0, 0, 0.22],
+    Riegel:              [ 0, 0, 0.22],
+    Zusatzschloss_oben:  [ 0, 0, 0.22],
+    Zusatzschloss_unten: [ 0, 0, 0.22],
+    Band_oben_Fluegel:   [ 0, 0, 0.4],
+    Band_mitte_Fluegel:  [ 0, 0, 0.4],
+    Band_unten_Fluegel:  [ 0, 0, 0.4],
+    Band_oben:           [ 0, 0, 0.4],
+    Band_mitte:          [ 0, 0, 0.4],
+    Band_unten:          [ 0, 0, 0.4],
+    Druecker:            [ 0, 0, 0.42],
+    Zylinder:            [ 0, 0, -0.1],
+    Fingerprint:         [ 0, 0, -0.1],
+    Dekorplatte:         [ 0, 0, -0.16],
+    Stossgriff:          [ 0, 0, -0.3],
   },
   // Reihenfolge im Intro: Rahmen zuerst, dann Schwelle, Anschlagdichtung und Schließbleche, das
   // Blatt samt Innendichtung und Schlossteilen (gleiche Verzögerung, sie fahren mit ihm), danach
