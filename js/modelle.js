@@ -220,6 +220,7 @@ export const FENSTER = {
   // Seitenwechsel klappt ein) oder 'beide' (bleibt beim Seitenwechsel bestehen).
   explosionSeite: 'innen',
   // Texte der Oberfläche.
+  kurz: 'Fenster',
   anrede: 'Ihr Fenster',
   titel: 'Dreh-Kipp-Fenster 1200 × 1400',
   nummer: 'FK-2026-0417',
@@ -482,6 +483,7 @@ export const HAUSTUER = {
   // Hub der Explosion in Metern (fest statt aus der Wanddicke): so weit vor die Fassade, dass
   // auch Drücker und Bänder, die vom Blatt aus nach innen gehen, frei vor der Wand stehen.
   hub: 0.7,
+  kurz: 'Haustür',
   anrede: 'Ihre Haustür',
   titel: 'Haustür Aluminium 1100 × 2200',
   nummer: 'HT-2026-0930',

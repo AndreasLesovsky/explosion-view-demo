@@ -52,8 +52,11 @@
 
 <body>
   <header class="header">
-    <a class="logo" href="#" id="logo" aria-label="Explosion View Demo – Startseite">Explosion&nbsp;View<span
-        class="logo__tag">Demo</span></a>
+    <!-- Zwischen Name und Zusatz bewusst ein Zeilenumbruch im Quelltext: die Lücke ist die
+         einzige Umbruchstelle, an der das Logo auf schmalen Kopfzeilen zweizeilig werden darf. -->
+    <a class="logo" href="#" id="logo" aria-label="Explosion View Demo – Startseite"><span
+        class="logo__name">Explosion&nbsp;View</span>
+      <span class="logo__tag">Demo</span></a>
     <nav class="nav" aria-label="Hauptnavigation">
       <!-- Umschalter zwischen den Modellen; nur im Viewer sichtbar (siehe showScreen in app.js). -->
       <div class="nav__switch" id="modell-switch" role="group" aria-label="Modell wechseln" hidden>
@@ -348,7 +351,8 @@
     <div class="footer__inner">
       <div>
         <p class="footer__logo">
-          Explosion&nbsp;View<span class="logo__tag">Demo</span>
+          <span class="logo__name">Explosion&nbsp;View</span>
+          <span class="logo__tag">Demo</span>
         </p>
         <p>
           Ersatzteile zum eigenen Fenster finden: scannen, im 3D-Modell

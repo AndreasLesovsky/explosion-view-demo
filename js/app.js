@@ -169,7 +169,18 @@ function frischerCanvas() {
 
 // ---------------------------------------------------------------------
 // Viewer
-function setLoadingState(state, err) {
+// Ladeanzeige. Beim Modellwechsel bleibt sie mindestens MIN_LADEANZEIGE zu sehen: das GLB
+// liegt dann meist schon im Cache und der neue Renderer braucht nur einen Wimpernschlag, ohne
+// Mindestdauer blitzte der Kreisel für ein paar Millisekunden auf. Beim ersten Laden verdeckt
+// das Scan-Overlay sie ohnehin, dort gilt keine Mindestdauer.
+const MIN_LADEANZEIGE = 700;
+let ladeanzeigeBis = 0;    // frühestens dann darf sie weg
+let ladeanzeigeLauf = 0;   // Zähler, damit ein Ausblenden nicht die nächste Anzeige trifft
+
+// @param {number} mindest Mindestdauer in ms (nur für state 'loading')
+function setLoadingState(state, err, mindest = 0) {
+  ladeanzeigeLauf++;
+  els.loading.classList.remove('is-out');
   els.loading.hidden = false;
   els.loading.classList.toggle('is-error', state === 'error');
   if (state === 'lost') {
@@ -183,14 +194,33 @@ function setLoadingState(state, err) {
       + 'und die Seite über einen Webserver geöffnet ist (z. B. XAMPP: http://localhost/…). '
       + 'Mit „Neu scannen" können Sie es erneut versuchen.';
   } else {
-    els.loadingText.textContent = 'Modell wird geladen …';
+    els.loadingText.textContent = `${modell.kurz} wird geladen …`;
+    ladeanzeigeBis = performance.now() + mindest;
   }
 }
 
+// Wartet die Mindestdauer ab; danach blendet der Aufrufer aus (ladeanzeigeAus).
+async function warteLadeanzeige() {
+  const rest = ladeanzeigeBis - performance.now();
+  if (rest > 0) await wait(rest);
+}
+
+// Ausblenden mit Übergang. Kommt währenddessen eine neue Anzeige (nächster Wechsel), bleibt
+// die stehen: der Zähler stimmt dann nicht mehr.
+async function ladeanzeigeAus() {
+  const lauf = ladeanzeigeLauf;
+  els.loading.classList.add('is-out');
+  await ausgeblendet(els.loading);
+  if (lauf !== ladeanzeigeLauf) return;
+  els.loading.hidden = true;
+  els.loading.classList.remove('is-out');
+}
+
 // @param {number|null} startStufe Qualitätsstufe des vorigen Viewers (Modellwechsel), sonst null
-function initViewer(startStufe = null) {
+// @param {number} mindest Mindestdauer der Ladeanzeige in ms; ausblenden muss der Aufrufer
+function initViewer(startStufe = null, mindest = 0) {
   if (viewerInit) return viewerInit;
-  setLoadingState('loading');
+  setLoadingState('loading', null, mindest);
   viewer = new WindowViewer({
     canvas: els.canvas,
     stage: els.stage,
@@ -211,7 +241,6 @@ function initViewer(startStufe = null) {
   }
   viewerInit = viewer.init(modell.url)
     .then(() => {
-      els.loading.hidden = true;
       buildPartsList(viewer.getParts());
     })
     .catch((err) => {
@@ -262,14 +291,19 @@ async function wechsleModell(id) {
   sperreToolbar(true);
   syncToolbar();   // alte Zustände (Explosion, offen) gelten für den neuen Viewer nicht
   try {
-    await initViewer(stufe);
+    await initViewer(stufe, MIN_LADEANZEIGE);
     if (viewer && viewer.ready) {
       viewer.prepareIntro();
+      await warteLadeanzeige();
       // Ist der Nutzer währenddessen zur Startseite gegangen, bleibt der Viewer angehalten;
       // der nächste Scan startet ihn mit dem Intro (startScan).
       if (!els.viewerScreen.hidden) {
+        // Intro und Ausblenden zugleich: das erste Bild erscheint unter der weichenden Anzeige.
         viewer.start();
         viewer.playIntro();
+        ladeanzeigeAus();
+      } else {
+        els.loading.hidden = true;
       }
     }
   } catch (_) {
@@ -538,6 +572,7 @@ async function startScan(id) {
     viewer.prepareIntro();
     syncToolbar();   // Zustand wurde vom Viewer zurückgesetzt
     viewer.start();
+    els.loading.hidden = true;   // liegt noch hinter dem Scan-Overlay, kein Übergang nötig
   }
 
   // Erst das Overlay ganz weg, dann die Animation. Vorher lief beides gleichzeitig: die
