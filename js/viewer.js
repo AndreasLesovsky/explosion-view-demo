@@ -2203,18 +2203,20 @@ export class WindowViewer {
     }
     if (oT > o0) steps.push({ key: 'openFactor', from: o0, to: oT, dur: OPEN_DURATION * (oT - o0), moves: true });
     if (tT > t0) steps.push({ key: 'tiltFactor', from: t0, to: tT, dur: TILT_DURATION * (tT - t0), moves: true });
-    // Drücker (Tür): niemand hält ihn, während die Tür schwingt. Sobald sie sich bewegt, geht
-    // er in die Ruhelage zurück - parallel zum Öffnen, nach einem Viertel von dessen Dauer.
+    // Drücker (Tür): niemand hält ihn, während die Tür schwingt. In dem Moment, in dem sie sich
+    // zu bewegen beginnt, lässt die Hand los, und er federt über gut ein Drittel der
+    // Öffnungsdauer zurück - Drücken und Loslassen sind eine durchgehende Bewegung, kein
+    // Halten mit anschließendem Ruck.
     const loslassen = !!(g.loslassen && oT > o0 && hT > 0);
     if (loslassen) {
-      steps.push({ key: 'handleAngle', from: hT, to: 0, dur: HANDLE_TURN_DURATION * hT / (Math.PI / 2), moves: false, parallelZu: 'openFactor' });
+      steps.push({ key: 'handleAngle', from: hT, to: 0, dur: OPEN_DURATION * 0.35, moves: false, parallelZu: 'openFactor' });
     }
     if (!steps.length) return 0;
     let at = 0;
     for (const step of steps) {
       if (step.parallelZu) {
         const bezug = steps.find((s) => s.key === step.parallelZu && s.moves);
-        step.start = bezug.start + bezug.dur * 0.25;
+        step.start = bezug.start;
         at = Math.max(at, step.start + step.dur);
         continue;
       }
@@ -2260,7 +2262,13 @@ export class WindowViewer {
     // die Abtastung des Rückzugs (retreatBefore) dieselbe Funktion.
     const stellung = (q) => {
       const elapsed = q * total;
-      for (const step of steps) this[step.key] = step.from + (step.to - step.from) * local(step, elapsed);
+      for (const step of steps) {
+        // Ein parallel laufender Schritt (Drücker loslassen) überschreibt denselben Wert erst,
+        // wenn er dran ist; vorher gilt der Schritt davor (das Drücken). Sonst stand der Drücker
+        // vom ersten Bild an unten, statt hinunterzugehen.
+        if (step.parallelZu && elapsed < step.start) continue;
+        this[step.key] = step.from + (step.to - step.from) * local(step, elapsed);
+      }
       this.applyExplode();
     };
     this.tween({
