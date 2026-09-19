@@ -469,11 +469,12 @@ export const HAUSTUER = {
   url: './haustuer.glb',
   root: 'Tuer',
   // Die meisten Bauteile einer Haustür sitzen außen (Stoßgriff, Fingerprint, Dekorplatte, die
-  // Ansichtsfläche des Blatts): Ruheansicht und Intro liegen vor der Fassade. Die Explosion geht
-  // vom Blatt aus nach beiden Seiten und bleibt beim Seitenwechsel bestehen: von außen sieht man
-  // die Außenteile, von innen Drücker, Bänder und Innendichtung.
+  // Ansichtsfläche des Blatts): Ruheansicht, Intro und Explosion liegen vor der Fassade. Wie beim
+  // Fenster gibt es die Explosion nur auf dieser einen Seite: der Wechsel nach innen klappt sie
+  // vorher ein (sonst stünde die Himmelsfläche zwischen Kamera und Teilen), Explodieren von innen
+  // fährt erst hinaus.
   hauptseite: 'aussen',
-  explosionSeite: 'beide',
+  explosionSeite: 'aussen',
   // Spreizung in zwei Schritten: erst alle Tiefenwege (z), dann die seitlichen (x/y). Nur so
   // kommen die Schlossteile aus der Blattkante: seitlich steht die Rahmenwange im Weg, bis das
   // Blatt hinter dem Rahmen ist.
