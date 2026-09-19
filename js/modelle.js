@@ -525,11 +525,10 @@ export const HAUSTUER = {
   // Fingerprint-Blende von seinem Ende (die einzige Stelle, an der ein Teil durch ein anderes
   // gleitet: die Blende über den Zylinderzapfen, ihre Bohrung ist im Netz nicht modelliert). Nach
   // außen vor den Rahmen kann das Blatt nicht: die Anschlaglippe des einteiligen Rahmens greift
-  // 9 mm über seine Mittelstufe. Die Innendichtung fährt mit dem Blatt (gleicher Weg): die Riegel
-  // und Haken ragen unter ihr aus der Blattkante, jeder andere Weg schöbe sie durch die Dichtung;
-  // die Schlossteile gehen danach 30 cm seitlich aus der Kante (zweiter Schritt, siehe
-  // `spreizung`). Die Anschlagdichtung löst sich langsamer als das Blatt nach innen aus dem
-  // Anschlag, die Schließbleche bleiben im Rahmenfalz.
+  // 9 mm über seine Mittelstufe. Innen staffeln sich Anschlagdichtung, Schlossteile,
+  // Innendichtung und Blatt in dieser Reihenfolge (siehe unten); die Schlossteile gehen danach
+  // 30 cm seitlich aus der Kante (zweiter Schritt, siehe `spreizung`). Nur die Schließbleche
+  // bleiben im Rahmenfalz, wie beim Fenster.
   // Nachgemessen (Scheitelpunkte gegen Volumen, jede Phase abgetastet): keine Durchdringung, die
   // nicht schon im montierten Zustand besteht (Zylinder in seiner Bohrung, Bolzen im Schließblech).
   versatz: {
@@ -538,16 +537,19 @@ export const HAUSTUER = {
     Schliessblech_oben:  [ 0, 0, 0],
     Schliessblech_mitte: [ 0, 0, 0],
     Schliessblech_unten: [ 0, 0, 0],
-    Anschlagdichtung:    [ 0, 0, 0.08],
-    Innendichtung:       [ 0, 0, 0.22],
+    // Tiefenstaffel nach innen, jedes Teil langsamer als das über ihm: Anschlagdichtung 6 cm,
+    // Schlossteile 7 cm (gerade über der Rahmenwange, unter der Innendichtung), Innendichtung
+    // 12 cm, Blatt 22 cm. Wäre eines schneller als das Teil darüber, führe es hindurch: die
+    // Riegel liegen unter dem Schenkel der Innendichtung, die Dichtung unter der Innenstufe des
+    // Blatts.
+    Anschlagdichtung:    [ 0, 0, 0.06],
+    Stulp:               [-0.3, 0, 0.07],
+    Falle:               [-0.3, 0, 0.07],
+    Riegel:              [-0.3, 0, 0.07],
+    Zusatzschloss_oben:  [-0.3, 0, 0.07],
+    Zusatzschloss_unten: [-0.3, 0, 0.07],
+    Innendichtung:       [ 0, 0, 0.12],
     Tuerblatt:           [ 0, 0, 0.22],
-    // 1 cm weniger tief als das Blatt: so bleiben sie unter der Innendichtung, statt beim
-    // seitlichen Schritt durch deren Schenkel zu fahren.
-    Stulp:               [-0.3, 0, 0.21],
-    Falle:               [-0.3, 0, 0.21],
-    Riegel:              [-0.3, 0, 0.21],
-    Zusatzschloss_oben:  [-0.3, 0, 0.21],
-    Zusatzschloss_unten: [-0.3, 0, 0.21],
     Band_oben_Fluegel:   [ 0, 0, 0.4],
     Band_mitte_Fluegel:  [ 0, 0, 0.4],
     Band_unten_Fluegel:  [ 0, 0, 0.4],
