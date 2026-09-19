@@ -63,7 +63,17 @@
         <button class="nav__seg is-on" type="button" data-modell="fenster" aria-pressed="true">Fenster</button>
         <button class="nav__seg" type="button" data-modell="haustuer" aria-pressed="false">Haustür</button>
       </div>
-      <!-- Bestellliste: gemerkte Bauteile, Popup unten auf der Seite (siehe js/bestellliste.js). -->
+      <button class="btn btn--ghost btn--small" id="btn-rescan" type="button" aria-label="Neu scannen" hidden>
+        <svg class="btn__rescan-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.2" />
+          <rect x="14" y="3" width="7" height="7" rx="1.2" />
+          <rect x="3" y="14" width="7" height="7" rx="1.2" />
+          <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
+        </svg>
+        <span class="btn__label">Neu scannen</span>
+      </button>
+      <!-- Bestellliste: gemerkte Bauteile, Popup unten auf der Seite (siehe js/bestellliste.js).
+           Ganz rechts, wie in jedem Shop-Kopf; davor steht, was zum Modell gehört. -->
       <button class="nav__cart" id="btn-bestellliste" type="button" aria-haspopup="dialog"
         aria-controls="bestellliste" aria-label="Bestellliste, leer">
         <span class="nav__cart-icon">
@@ -75,15 +85,6 @@
           <span class="nav__cart-count" id="bestellliste-count" hidden>0</span>
         </span>
         <span class="nav__cart-label">Bestellliste</span>
-      </button>
-      <button class="btn btn--ghost btn--small" id="btn-rescan" type="button" aria-label="Neu scannen" hidden>
-        <svg class="btn__rescan-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" rx="1.2" />
-          <rect x="14" y="3" width="7" height="7" rx="1.2" />
-          <rect x="3" y="14" width="7" height="7" rx="1.2" />
-          <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z" fill="currentColor" stroke="none" />
-        </svg>
-        <span class="btn__label">Neu scannen</span>
       </button>
     </nav>
   </header>
