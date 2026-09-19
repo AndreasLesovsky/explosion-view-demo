@@ -1670,8 +1670,15 @@ export class WindowViewer {
     // und Wandfläche wird weich überblendet, damit die Grenzen während der Flügel- und
     // Explosionsfahrt nicht springen. Früher wuchs die Öffnung nur um den Vorstand des
     // Drehpunkts mit; bei offenem Flügel endete die Drehung so bei rund 48 Grad.
+    // Außen dasselbe gespiegelt: steht der Blickpunkt vor der Fassade (Explosion der Tür), gibt
+    // es keine Laibung mehr, die ihn verdecken könnte. Vorher galt hier stur die Innenformel,
+    // und die Explosion außen ließ sich herangezoomt nur noch von schräg vorn ansehen.
     const wandflaeche = Math.max(this.wallFaceZ, this.box.max.z + 0.01);
-    const eng = nah * (1 - smoothstep(this.box.max.z, wandflaeche, t.z));
+    const aussenflaeche = Math.min(this.wallOuterZ, this.box.min.z - 0.01);
+    const vorDerWand = innen
+      ? smoothstep(this.box.max.z, wandflaeche, t.z)
+      : smoothstep(-this.box.min.z, -aussenflaeche, -t.z);
+    const eng = nah * (1 - vorDerWand);
     const xHi = this.box.max.x + OPENING_MARGIN_X;
     const xLo = this.box.min.x - OPENING_MARGIN_X;
     const yHi = this.box.max.y + OPENING_MARGIN_Y;
