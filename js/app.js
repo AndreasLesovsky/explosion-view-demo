@@ -1,5 +1,5 @@
 // =====================================================================
-// app.js – UI-Ablauf: Hero -> Scan-Animation -> 3D-Viewer -> Tooltip/Shop
+// app.js – UI-Ablauf: Hero -> Scan-Animation -> 3D-Viewer -> Tooltip -> Bestellliste
 // Zwei Modelle (Fenster, Haustür): die Startseite scannt eines davon, im Viewer schaltet ein
 // Umschalter zwischen beiden um. Je Modell wird ein eigener Viewer angelegt (der Viewer ist
 // für genau ein Modell gebaut); die Qualitätsstufe wird dabei übernommen.
@@ -7,6 +7,7 @@
 
 import { WindowViewer, preloadModel } from './viewer.js';
 import { MODELLE, SHOP_BASE } from './modelle.js';
+import { Bestellliste } from './bestellliste.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
@@ -59,9 +60,12 @@ const els = {
   tooltip: $('#tooltip'),
   ttTitle: $('#tt-title'),
   ttInfo: $('#tt-info'),
-  ttLink: $('#tt-link'),
-  ttLinkLabel: $('#tt-link-label'),
+  ttAdd: $('#tt-add'),
+  ttStand: $('#tt-stand'),
+  ttStandText: $('#tt-stand-text'),
+  ttStandOpen: $('#tt-stand-open'),
   ttClose: $('#tooltip-close'),
+  side: $('#viewer-side'),
   parts: $('#parts'),
   explodeBtn: $('#btn-explode'),
   openBtn: $('#btn-open'),
@@ -86,7 +90,23 @@ let viewerInit = null;
 let lastAnchor = { x: 0, y: 0, visible: false };
 let selectedName = null;
 let selectionFromList = false;
+let teile = [];                 // Bauteile der Liste (erst Metadaten, dann aus dem GLB)
 const partLabels = new Map();   // name -> Anzeigename (für das Hover-Schild)
+
+// Gemerkte Ersatzteile beider Modelle; Zustand und Popup wohnen in bestellliste.js. Ändert
+// sich der Inhalt, zeigen Liste (Mengen-Chips) und Tooltip (Standzeile) den neuen Stand.
+const bestellliste = new Bestellliste({
+  dialog: $('#bestellliste'),
+  knopf: $('#btn-bestellliste'),
+  zaehler: $('#bestellliste-count'),
+  liste: $('#cart-list'),
+  leer: $('#cart-empty'),
+  summe: $('#cart-sum'),
+  schliessen: $('#cart-close'),
+  leeren: $('#cart-clear'),
+  shop: $('#cart-shop'),
+  onChange: () => { renderParts(); zeigeBestellStand(); },
+});
 
 // Das Standardmodell schon beim Seitenaufruf laden, damit es nach dem "Scan" sofort da ist;
 // die Tür erst, wenn sie gewählt wird (der Scan dauert länger als ihr Download).
@@ -282,13 +302,10 @@ function sperreToolbar(an) {
 function handleSelect(info) {
   const previous = selectedName;
   selectedName = info ? info.name : null;
-  for (const btn of els.parts.querySelectorAll('button')) {
-    const active = !!info && btn.dataset.part === info.name;
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-pressed', String(active));
-  }
+  // Die Liste wird neu aufgebaut: das gewählte Teil wandert in den Bereich "Auswahl" ganz oben.
+  const hadFocusInside = els.tooltip.contains(document.activeElement);
+  renderParts();
   if (!info) {
-    const hadFocusInside = els.tooltip.contains(document.activeElement);
     els.tooltip.hidden = true;
     // Fokus zurück auf den Listeneintrag, sonst landet er im <body>. Ohne Scrollen:
     // auf dem Handy liegt die Liste unter der Bühne und würde sonst hart ins Bild springen.
@@ -300,8 +317,8 @@ function handleSelect(info) {
   }
   els.ttTitle.textContent = info.label;
   els.ttInfo.textContent = info.info;
-  els.ttLink.href = info.url;
-  els.ttLinkLabel.textContent = `${info.categoryLabel} im Shop`;
+  els.ttAdd.classList.remove('is-done');
+  zeigeBestellStand();
   els.hoverLabel.hidden = true;   // Schild des gerade angeklickten Teils ausblenden
   els.tooltip.hidden = false;
   if (isStackedLayout()) {
@@ -310,11 +327,34 @@ function handleSelect(info) {
     els.tooltip.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   } else {
     positionTooltip(lastAnchor);
+    // Das Teil steht jetzt oben in der Liste; war die Liste heruntergescrollt, dorthin fahren.
+    els.side.scrollTo({ top: 0, behavior: 'smooth' });
   }
   if (selectionFromList) {
     els.tooltip.focus({ preventScroll: true });
     selectionFromList = false;
   }
+}
+
+// Zeile unter dem Knopf im Tooltip: wie oft das gewählte Teil schon in der Bestellliste liegt.
+function zeigeBestellStand() {
+  const n = selectedName ? bestellliste.menge(modell.id, selectedName) : 0;
+  els.ttStand.hidden = n === 0;
+  if (n) els.ttStandText.textContent = `${n}× in der Bestellliste ·`;
+}
+
+// Gewähltes Teil in die Bestellliste; der Knopf bestätigt kurz, der Zähler im Kopf hüpft.
+let addTimer = 0;
+function zurBestellliste() {
+  if (!selectedName) return;
+  bestellliste.hinzufuegen(modell.id, selectedName);
+  els.ttAdd.classList.add('is-done');
+  clearTimeout(addTimer);
+  addTimer = setTimeout(() => els.ttAdd.classList.remove('is-done'), 1400);
+  const zaehler = $('#bestellliste-count');
+  zaehler.classList.remove('is-bump');
+  void zaehler.offsetWidth;
+  zaehler.classList.add('is-bump');
 }
 
 // Kleines Namensschild am Mauszeiger, solange ein klickbares Teil gehovert wird.
@@ -368,41 +408,72 @@ function positionTooltip({ x, y, visible }) {
 
 /** @param {Array<{name:string,label:string,categoryLabel:string,group?:string}>} parts */
 function buildPartsList(parts) {
+  teile = parts;
+  for (const part of parts) partLabels.set(part.name, part.label);
+  renderParts();
+}
+
+// Liste aufbauen: das gewählte Teil zuerst im Bereich "Auswahl", darunter die Gruppen ohne
+// dieses Teil. Eine Gruppe, die dadurch leer würde, bekommt keine Überschrift. Neu aufgebaut
+// wird bei jeder Auswahl und jeder Änderung der Bestellliste (Mengen-Chips); mit rund dreißig
+// Zeilen ist das billiger als jede Zeile einzeln nachzuführen.
+function renderParts() {
   els.parts.innerHTML = '';
+  const auswahl = teile.find((p) => p.name === selectedName) || null;
+  if (auswahl) {
+    els.parts.appendChild(gruppenKopf('Auswahl', true));
+    els.parts.appendChild(teilZeile(auswahl, true));
+  }
   let lastGroup = null;
-  for (const part of parts) {
-    partLabels.set(part.name, part.label);
+  for (const part of teile) {
+    if (part === auswahl) continue;
     if (part.group && part.group !== lastGroup) {
-      const head = document.createElement('li');
-      head.className = 'parts__group';
-      head.textContent = part.group;
-      els.parts.appendChild(head);
+      els.parts.appendChild(gruppenKopf(part.group, false));
       lastGroup = part.group;
     }
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.dataset.part = part.name;
-    btn.setAttribute('aria-pressed', String(part.name === selectedName));
-    btn.classList.toggle('is-active', part.name === selectedName);
-    btn.innerHTML = '<span class="parts__dot" aria-hidden="true"></span>'
-      + '<span class="parts__label"></span><span class="parts__cat"></span>';
-    btn.querySelector('.parts__label').textContent = part.label;
-    btn.querySelector('.parts__cat').textContent = (part.categoryLabel || '').replace(/^Alle\s+/, '');
-    btn.addEventListener('click', () => {
-      if (!viewer || !viewer.ready) return;
-      selectionFromList = true;
-      viewer.selectByName(part.name);
-      selectionFromList = false;
-    });
-    // Doppelklick in der Liste: Kamera auf das Teil fokussieren.
-    btn.addEventListener('dblclick', () => {
-      if (!viewer || !viewer.ready) return;
-      viewer.focusByName(part.name);
-    });
-    li.appendChild(btn);
-    els.parts.appendChild(li);
+    els.parts.appendChild(teilZeile(part, false));
   }
+}
+
+function gruppenKopf(text, auswahl) {
+  const head = document.createElement('li');
+  head.className = auswahl ? 'parts__group parts__group--auswahl' : 'parts__group';
+  head.textContent = text;
+  return head;
+}
+
+function teilZeile(part, aktiv) {
+  const li = document.createElement('li');
+  if (aktiv) li.className = 'parts__auswahl';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset.part = part.name;
+  btn.setAttribute('aria-pressed', String(aktiv));
+  btn.classList.toggle('is-active', aktiv);
+  btn.innerHTML = '<span class="parts__dot" aria-hidden="true"></span>'
+    + '<span class="parts__label"></span><span class="parts__menge" hidden></span><span class="parts__cat"></span>';
+  btn.querySelector('.parts__label').textContent = part.label;
+  btn.querySelector('.parts__cat').textContent = (part.categoryLabel || '').replace(/^Alle\s+/, '');
+  const menge = bestellliste.menge(modell.id, part.name);
+  if (menge) {
+    const chip = btn.querySelector('.parts__menge');
+    chip.hidden = false;
+    chip.textContent = `${menge}×`;
+    chip.setAttribute('aria-label', `${menge} Stück in der Bestellliste`);
+  }
+  btn.addEventListener('click', () => {
+    if (!viewer || !viewer.ready) return;
+    selectionFromList = true;
+    viewer.selectByName(part.name);
+    selectionFromList = false;
+  });
+  // Doppelklick in der Liste: Kamera auf das Teil fokussieren.
+  btn.addEventListener('dblclick', () => {
+    if (!viewer || !viewer.ready) return;
+    viewer.focusByName(part.name);
+  });
+  li.appendChild(btn);
+  return li;
 }
 
 // ---------------------------------------------------------------------
@@ -585,6 +656,8 @@ function toggleStats(an) {
 
 els.statsBtn.addEventListener('click', () => toggleStats());
 els.ttClose.addEventListener('click', () => viewer && viewer.select(null));
+els.ttAdd.addEventListener('click', zurBestellliste);
+els.ttStandOpen.addEventListener('click', () => bestellliste.oeffnen());
 // Alle Zustandsbuttons aus dem Viewer ableiten, da sich Explosion, Drehen und Kippen
 // gegenseitig ausschließen.
 function syncToolbar() {
@@ -627,7 +700,10 @@ els.resetBtn.addEventListener('click', () => {
   syncToolbar();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && viewer && viewer.ready && viewer.selected) viewer.select(null);
+  if (e.key !== 'Escape') return;
+  // Escape gilt zuerst dem offenen Popup, nicht der Auswahl dahinter.
+  if (bestellliste.offen) { bestellliste.schliessen(); return; }
+  if (viewer && viewer.ready && viewer.selected) viewer.select(null);
 });
 window.addEventListener('resize', () => {
   // Gemerkte Overlay-Breite verwerfen: nach einem Größenwechsel gilt eine andere

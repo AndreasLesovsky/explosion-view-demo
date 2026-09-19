@@ -181,6 +181,72 @@ h3 {
   text-underline-offset: 4px;
 }
 
+/* Bestellliste in der Kopfzeile: Wagen mit Zähler, daneben das Wort. Optisch wie die Links
+   der Navigation, technisch ein Knopf (öffnet das Popup). */
+.nav__cart {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: .92;
+}
+
+.nav__cart:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.nav__cart-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.nav__cart svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav__cart-count {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.nav__cart-count.is-bump {
+  animation: bump .35s ease-out;
+}
+
+@keyframes bump {
+  40% {
+    transform: scale(1.4);
+  }
+}
+
 /* Umschalter zwischen den Modellen: zwei Segmente in einer weißen Pille auf dem roten Kopf,
    das aktive Segment gefüllt. */
 .nav__switch {
@@ -219,17 +285,58 @@ h3 {
   opacity: .7;
 }
 
-/* Telefon: neben Logo und "Neu scannen" ist kein Platz für beide Segmente und den Shop-Link.
-   Es bleibt das Segment des anderen Modells als Wechselknopf; welches Modell gerade zu sehen
-   ist, steht in der Seitenleiste. */
+/* Schmal: der Wagen steht ohne Wort da, der Zähler sagt genug. */
+@media (max-width: 760px) {
+  .nav__cart-label {
+    display: none;
+  }
+}
+
+/* Telefon: neben Logo, Wagen und "Neu scannen" ist kein Platz für beide Segmente. Es bleibt
+   das Segment des anderen Modells als Wechselknopf; welches Modell gerade zu sehen ist, steht
+   in der Seitenleiste. */
 @media (max-width: 576px) {
-  .nav__seg.is-on,
-  .nav:has(#modell-switch:not([hidden])) > a {
+  .nav {
+    gap: 10px;
+  }
+
+  .nav__seg.is-on {
     display: none;
   }
 
   .nav__seg {
     padding: 6px 12px;
+  }
+}
+
+/* Schmales Telefon: "Neu scannen" nur als Symbol (QR-Code). Gerechnet bei 360 px: neben dem
+   zweizeiligen Logo bleiben rund 210 px, mit Wort im Knopf brauchen Segment, Wagen und Knopf
+   samt Abständen 231. Das Wort bleibt als aria-label. */
+.btn__rescan-icon {
+  display: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 480px) {
+  #btn-rescan {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    gap: 0;
+  }
+
+  #btn-rescan .btn__label {
+    display: none;
+  }
+
+  .btn__rescan-icon {
+    display: block;
   }
 }
 
@@ -742,6 +849,28 @@ h3 {
   margin-top: 0;
 }
 
+/* Bereich "Auswahl" ganz oben: das angetippte Teil wird aus seiner Gruppe herausgezogen und
+   steht hier, damit man es bei der langen Liste nicht suchen muss. */
+.parts__group--auswahl {
+  color: var(--red);
+}
+
+.parts__auswahl {
+  animation: tt-in .18s ease-out;
+}
+
+/* Stückzahl, wenn das Teil in der Bestellliste liegt. */
+.parts__menge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .parts__dot {
   flex: none;
   width: 10px;
@@ -1133,6 +1262,259 @@ h3 {
   width: 100%;
 }
 
+/* Nach dem Hinzufügen zeigt der Knopf kurz "Hinzugefügt" mit Haken statt Plus. */
+.tt-add__check,
+.tt-add__done,
+.tt-add.is-done .tt-add__plus,
+.tt-add.is-done .tt-add__text {
+  display: none;
+}
+
+.tt-add.is-done .tt-add__check,
+.tt-add.is-done .tt-add__done {
+  display: inline;
+}
+
+.tooltip__stand {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.tooltip__stand button {
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------- Bestellliste (Popup) ---------- */
+/* Ein <dialog>. Sichtbar nur mit [open]: ohne die Bedingung schlüge display: flex die
+   Browser-Regel dialog:not([open]) { display: none } und die Karte stünde immer im Bild. */
+.cart {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.cart[open] {
+  display: flex;
+  flex-direction: column;
+  animation: cart-in .2s ease-out;
+}
+
+.cart::backdrop {
+  background: rgba(20, 20, 20, .45);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes cart-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cart__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 24px 14px;
+}
+
+.cart__head .eyebrow {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.cart__title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cart__close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin: -6px -8px 0 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cart__close:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.cart__empty {
+  margin: 0;
+  padding: 4px 24px 24px;
+}
+
+.cart__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.cart__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.cart__row:first-child {
+  border-top: 0;
+}
+
+.cart__text {
+  display: grid;
+  gap: 2px;
+}
+
+.cart__label {
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.cart__info {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.cart__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cart__menge {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+}
+
+.cart__menge button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cart__menge button:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.cart__menge output {
+  min-width: 26px;
+  text-align: center;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.cart__remove {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cart__remove:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.cart__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.cart__sum {
+  margin: 0 auto 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.cart__foot .btn[aria-disabled="true"] {
+  opacity: .5;
+  pointer-events: none;
+}
+
+@media (max-width: 576px) {
+  .cart {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .cart__head,
+  .cart__list,
+  .cart__foot {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .cart__row {
+    gap: 8px;
+  }
+
+  .cart__foot {
+    flex-wrap: wrap;
+  }
+
+  .cart__sum {
+    flex: 1 0 100%;
+  }
+
+  .cart__foot .btn {
+    flex: 1 1 auto;
+  }
+}
+
 /* ---------- Scan-Overlay ---------- */
 .scan {
   position: fixed;
@@ -1458,7 +1840,10 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
 
   .btn--xl::after,
-  .scan__laser {
+  .scan__laser,
+  .cart[open],
+  .parts__auswahl,
+  .nav__cart-count.is-bump {
     animation: none;
   }
 
