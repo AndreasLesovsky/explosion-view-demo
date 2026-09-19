@@ -286,13 +286,15 @@ async function wechsleModell(id) {
   wechsel = true;
   for (const btn of [...els.switchBtns, els.scanBtn]) btn.disabled = true;
   const stufe = viewer && viewer.ready ? viewer.perf.stufe : null;
-  toggleStats(false);
+  // Das Leistungs-Overlay bleibt, wie es ist: eingeschaltet zeigt es die alten Werte, bis der
+  // neue Viewer liefert (renderStats wartet auf ihn), und der bekommt den Modus mit.
   waehleModell(id);
   sperreToolbar(true);
   syncToolbar();   // alte Zustände (Explosion, offen) gelten für den neuen Viewer nicht
   try {
     await initViewer(stufe, MIN_LADEANZEIGE);
     if (viewer && viewer.ready) {
+      viewer.setStatsMode(!els.stats.hidden);
       viewer.prepareIntro();
       await warteLadeanzeige();
       // Ist der Nutzer währenddessen zur Startseite gegangen, bleibt der Viewer angehalten;
