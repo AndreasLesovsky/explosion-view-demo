@@ -61,6 +61,11 @@ body {
    waagrechte Bildlaufleiste erzeugt. */
 .main {
   min-width: 0;
+  /* Der Viewer-Bildschirm fährt beim Einblenden um 10 px von unten hoch (.screen). Solange er
+     noch unten steht, ragt er um diese 10 px über den Viewport und die Seite bekam für eine
+     halbe Sekunde eine Bildlaufleiste. clip schneidet ab, ohne einen Scroll-Container zu
+     machen: die Startseite scrollt weiter normal mit dem Dokument. */
+  overflow: clip;
 }
 
 [hidden] {
